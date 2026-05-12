@@ -1,7 +1,7 @@
 import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-function Profile() {
+function Profile({ navigate }) {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -10,14 +10,33 @@ function Profile() {
         </View>
         <Text style={styles.name}>Sindhu</Text>
         <Text style={styles.role}>Access Control Operator</Text>
+
         <View style={styles.infoBox}>
           <Text style={styles.infoLabel}>Profile status</Text>
           <Text style={styles.infoValue}>Face profile active</Text>
         </View>
+
         <View style={styles.infoBox}>
           <Text style={styles.infoLabel}>Department</Text>
           <Text style={styles.infoValue}>Security Operations</Text>
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+          style={({ pressed }) => [
+            styles.infoBox,
+            styles.infoBoxRow,
+            pressed && styles.infoBoxPressed,
+          ]}
+          onPress={() => navigate('settings')}
+        >
+          <View style={styles.infoRowContent}>
+            <Text style={styles.infoLabel}>Settings</Text>
+            <Text style={styles.infoValue}>App preferences & security</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -71,6 +90,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 13,
   },
+  infoBoxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoBoxPressed: {
+    backgroundColor: '#edf4fb',
+  },
+  infoRowContent: {
+    flex: 1,
+  },
   infoLabel: {
     color: '#667085',
     fontSize: 12,
@@ -81,6 +110,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
     marginTop: 4,
+  },
+  chevron: {
+    color: '#667085',
+    fontSize: 24,
+    fontWeight: '300',
+    marginLeft: 8,
   },
 });
 

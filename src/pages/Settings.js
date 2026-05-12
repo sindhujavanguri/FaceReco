@@ -1,7 +1,7 @@
 import React from 'react';
-import {StyleSheet, Switch, Text, View} from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-function Settings() {
+function Settings({ navigate }) {
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -28,6 +28,14 @@ function Settings() {
           </View>
           <Switch value={false} />
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          style={styles.signOutButton}
+          onPress={() => navigate('login')}
+        >
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -75,6 +83,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 3,
+  },
+  signOutButton: {
+    alignItems: 'center',
+    backgroundColor: '#b42318',
+    borderRadius: 8,
+    justifyContent: 'center',
+    marginTop: 18,
+    minHeight: 48,
+  },
+  signOutText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '900',
   },
 });
 

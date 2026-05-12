@@ -8,20 +8,21 @@ import {
   View,
 } from 'react-native';
 
-const logo = require('../../assets/images/Faceicon.png');
+const logo = require('../../assets/images/Faceicon.webp');
+const accessIcon = require('../../assets/images/access.png');
+const alertIcon = require('../../assets/images/alert.png');
+const historyIcon = require('../../assets/images/history.png');
+const reportIcon = require('../../assets/images/report.png');
 
-function ActionCard({title, text, icon, onPress}) {
+function QuickActionCard({title, text, icon}) {
   return (
-    <Pressable style={styles.actionCard} onPress={onPress}>
-      <View style={styles.actionIconBox}>
-        <Text style={styles.actionIcon}>{icon}</Text>
+    <View style={styles.quickCard}>
+      <View style={styles.quickIconBox}>
+        <Image source={icon} style={styles.quickIcon} resizeMode="contain" />
       </View>
-      <View style={styles.actionTextWrap}>
-        <Text style={styles.actionTitle}>{title}</Text>
-        <Text style={styles.actionText}>{text}</Text>
-      </View>
-      <Text style={styles.actionArrow}>{'›'}</Text>
-    </Pressable>
+      <Text style={styles.quickTitle}>{title}</Text>
+      <Text style={styles.quickText}>{text}</Text>
+    </View>
   );
 }
 
@@ -31,8 +32,6 @@ function Home({navigate}) {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       style={styles.scrollView}>
-
-     
 
       {/* ── Body ── */}
       <View style={styles.body}>
@@ -85,30 +84,31 @@ function Home({navigate}) {
           </Pressable>
         </View>
 
-        {/* Workspace section */}
+        {/* ── Quick Actions ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Workspace</Text>
-          <Text style={styles.sectionHint}>Quick access</Text>
+          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         </View>
 
-        <View style={styles.actionList}>
-          <ActionCard
-            icon="ID"
-            title="Profile details"
-            text="Name, role, and access status"
-            onPress={() => navigate('profile')}
+        <View style={styles.quickGrid}>
+          <QuickActionCard
+            title="Scan History"
+            text="Last 30 days"
+            icon={historyIcon}
           />
-          <ActionCard
-            icon="LOC"
-            title="Location"
-            text="Bengaluru HQ and entry zone"
-            onPress={() => navigate('location')}
+          <QuickActionCard
+            title="Access Log"
+            text="View entries"
+            icon={accessIcon}
           />
-          <ActionCard
-            icon="SEC"
-            title="Account security"
-            text="Device trust and face profile"
-            onPress={() => navigate('account')}
+          <QuickActionCard
+            title="Alerts"
+            text="No new alerts"
+            icon={alertIcon}
+          />
+          <QuickActionCard
+            title="Reports"
+            text="Download data"
+            icon={reportIcon}
           />
         </View>
 
@@ -117,17 +117,6 @@ function Home({navigate}) {
   );
 }
 
-// ─── Blue Frost Palette ───────────────────────────────────────────────────────
-// Header bg:    #DDE8F5   border: #C5D6EE   eyebrow: #5A7BA8   title: #0C2D5A
-// Page bg:      #F0F5FB
-// Cards bg:     #FFFFFF   border: #C5D6EE
-// Profile av:   #DDE8F5
-// Scan card:    #0D2E4E   meta bg: rgba(255,255,255,0.07)
-// Scan ready:   #38BDF8   button bg: #38BDF8  button text: #082F49
-// Icon box:     #DDE8F5   icon text: #1A3A6B
-// Arrow:        #1A3A6B
-// Verified:     bg #EDFAF3  border #BBF0D4  text #027A48  dot #12B76A
-// ─────────────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
 
@@ -137,29 +126,6 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 28,
-  },
-
-  // ── Header ───────────────────────────────────────────────────────────────
-  header: {
-    backgroundColor: '#DDE8F5',
-    borderBottomWidth: 1,
-    borderBottomColor: '#C5D6EE',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  headerEyebrow: {
-    color: '#5A7BA8',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    marginBottom: 3,
-  },
-  headerTitle: {
-    color: '#0C2D5A',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: 0.1,
   },
 
   // ── Body wrapper ─────────────────────────────────────────────────────────
@@ -299,72 +265,56 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // ── Workspace section ────────────────────────────────────────────────────
+  // ── Quick Actions section ─────────────────────────────────────────────────
   sectionHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginTop: 22,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
-    color: '#0C2D5A',
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  sectionHint: {
     color: '#5A7BA8',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
   },
-
-  // ── Action cards ─────────────────────────────────────────────────────────
-  actionList: {
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
   },
-  actionCard: {
-    alignItems: 'center',
+
+  // ── Quick action card ─────────────────────────────────────────────────────
+  quickCard: {
     backgroundColor: '#ffffff',
     borderColor: '#C5D6EE',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
     padding: 14,
+    // Each card takes ~half width minus gap
+    width: '47.5%',
   },
-  actionIconBox: {
+  quickIconBox: {
     alignItems: 'center',
     backgroundColor: '#DDE8F5',
     borderRadius: 10,
-    height: 42,
+    height: 40,
     justifyContent: 'center',
-    width: 48,
+    marginBottom: 10,
+    width: 40,
   },
-  actionIcon: {
-    color: '#1A3A6B',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+  quickIcon: {
+    height: 24,
+    width: 24,
   },
-  actionTextWrap: {
-    flex: 1,
-  },
-  actionTitle: {
+  quickTitle: {
     color: '#0C2D5A',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
+    marginBottom: 2,
   },
-  actionText: {
+  quickText: {
     color: '#5A7BA8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    lineHeight: 17,
-    marginTop: 3,
-  },
-  actionArrow: {
-    color: '#1A3A6B',
-    fontSize: 26,
-    fontWeight: '900',
   },
 });
 
