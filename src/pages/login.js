@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
+  Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -8,26 +10,101 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { loginApi } from '../redux/loginSlice';
 
-const STATIC_EMAIL = 'admin@example.com';
-const STATIC_PASSWORD = 'password123';
+const logo = require('../../assets/images/mainlogo.png');
+
+function FloatingInput({ label, value, onChangeText, placeholder, secureTextEntry, keyboardType, autoCapitalize }) {
+  const [focused, setFocused] = useState(false);
+  const borderAnim = useRef(new Animated.Value(0)).current;
+
+  const handleFocus = () => {
+    setFocused(true);
+    Animated.timing(borderAnim, { toValue: 1, duration: 180, useNativeDriver: false }).start();
+  };
+
+  const handleBlur = () => {
+    setFocused(false);
+    Animated.timing(borderAnim, { toValue: 0, duration: 180, useNativeDriver: false }).start();
+  };
+
+  const borderColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['#e2e8f0', '#1a56db'],
+  });
+
+  return (
+    <View style={inputStyles.wrapper}>
+      <Text style={[inputStyles.label, focused && inputStyles.labelFocused]}>{label}</Text>
+      <Animated.View style={[inputStyles.inputWrapper, { borderColor }]}>
+        <TextInput
+          autoCapitalize={autoCapitalize ?? 'none'}
+          autoCorrect={false}
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder={secureTextEntry ? 'Enter password' : placeholder}
+          placeholderTextColor="#94a3b8"
+          secureTextEntry={secureTextEntry}
+          style={inputStyles.input}
+          value={value}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
+const inputStyles = StyleSheet.create({
+  wrapper: { marginBottom: 16 },
+  label: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
+  labelFocused: { color: '#1a56db' },
+  inputWrapper: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  input: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '500',
+    minHeight: 50,
+    paddingHorizontal: 16,
+  },
+});
 
 function Login({ navigate, onSignIn }) {
-  const [email, setEmail] = useState(STATIC_EMAIL);
-  const [password, setPassword] = useState(STATIC_PASSWORD);
+  const [loginMode, setLoginMode] = useState('admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleLogin = () => {
-    const validEmail = email.trim().toLowerCase() === STATIC_EMAIL;
-    const validPassword = password === STATIC_PASSWORD;
+  const handleLogin = async () => {
+    try {
+      const loginDetails = await loginApi({ email, password, mode: loginMode });
 
-    if (validEmail && validPassword) {
+      console.log('Login Screen Full Response:', loginDetails);
       setError('');
-      onSignIn();
-      return;
+      setSuccess(
+        `${loginMode === 'employee' ? 'Employee' : 'Admin'} login successful.`
+      );
+      setTimeout(() => {
+        onSignIn?.();
+      }, 800);
+    } catch (loginError) {
+      console.log('Login Screen Error:', loginError);
+      setSuccess('');
+      setError(loginError.message || 'Login failed. Please try again.');
     }
-
-    setError('Use admin@example.com and password123 to sign in.');
   };
 
   return (
@@ -35,70 +112,110 @@ function Login({ navigate, onSignIn }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.screen}
     >
+      <Image source={logo} style={styles.topLogo} resizeMode="contain" />
       <View style={styles.card}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoText}>ID</Text>
+        <Text style={styles.cardTitle}>SignIn</Text>
+
+        <View style={styles.modeTabs}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Use admin login"
+            onPress={() => setLoginMode('admin')}
+            style={[
+              styles.modeTab,
+              loginMode === 'admin' && styles.modeTabActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeTabText,
+                loginMode === 'admin' && styles.modeTabTextActive,
+              ]}
+            >
+              Admin
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Use employee login"
+            onPress={() => setLoginMode('employee')}
+            style={[
+              styles.modeTab,
+              loginMode === 'employee' && styles.modeTabActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeTabText,
+                loginMode === 'employee' && styles.modeTabTextActive,
+              ]}
+            >
+              Employee
+            </Text>
+          </Pressable>
         </View>
 
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>
-          Sign in with the static credentials.
-        </Text>
+        <FloatingInput
+          label="Username"
+          value={email}
+          onChangeText={setEmail}
+          placeholder={loginMode === 'employee' ? '8985981169' : 'sindhu'}
+        />
+        <FloatingInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="••••••••"
+          secureTextEntry
+        />
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            placeholder="admin@example.com"
-            placeholderTextColor="#98a2b3"
-            style={styles.input}
-            value={email}
-          />
-        </View>
+        {!!error && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorDot}>●</Text>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            onChangeText={setPassword}
-            placeholder="password123"
-            placeholderTextColor="#98a2b3"
-            secureTextEntry
-            style={styles.input}
-            value={password}
-          />
-        </View>
-
-        {!!error && <Text style={styles.errorText}>{error}</Text>}
+        {!!success && (
+          <View style={styles.successBox}>
+            <Text style={styles.successDot}>OK</Text>
+            <Text style={styles.successText}>{success}</Text>
+          </View>
+        )}
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign in"
           onPress={handleLogin}
-          style={styles.primaryButton}
+          style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
         >
-          <Text style={styles.primaryButtonText}>Sign In</Text>
+          <Text style={styles.primaryButtonText}>Continue</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Forgot password"
-          onPress={() => navigate('forgot')}
-          style={styles.linkButton}
+          onPress={() => navigate?.('forgot')}
+          style={({ pressed }) => [styles.forgotButton, pressed && styles.forgotButtonPressed]}
         >
-          <Text style={styles.linkText}>Forgot password?</Text>
+          <Text style={styles.forgotText}>Forgot your password?</Text>
         </Pressable>
 
+        <View style={styles.footerDivider}>
+          <View style={styles.footerLine} />
+          <Text style={styles.footerOr}>or</Text>
+          <View style={styles.footerLine} />
+        </View>
+
         <View style={styles.footerRow}>
-          <Text style={styles.footerText}>No account?</Text>
+          <Text style={styles.footerText}>Don't have an account?</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Create account"
-            onPress={() => navigate('signup')}
+            onPress={() => navigate?.('signup')}
+            style={({ pressed }) => pressed && styles.linkPressed}
           >
-            <Text style={styles.footerLink}> Sign up</Text>
+            <Text style={styles.footerLink}> Create one</Text>
           </Pressable>
         </View>
       </View>
@@ -109,111 +226,195 @@ function Login({ navigate, onSignIn }) {
 const styles = StyleSheet.create({
   screen: {
     alignItems: 'center',
-    backgroundColor: '#eef5fb',
+    backgroundColor: '#f5f5f7',
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
   },
+  topLogo: {
+    height: 70,
+    marginBottom: 18,
+    width: 210,
+  },
+  // Card
   card: {
     backgroundColor: '#ffffff',
-    borderColor: '#d8e3ed',
-    borderRadius: 8,
+    borderColor: '#dde1e7',
+    borderRadius: 32,
     borderWidth: 1,
-    padding: 22,
+    paddingHorizontal: 28,
+    paddingVertical: 32,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 6,
     width: '100%',
   },
-  logoBadge: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#102a43',
+  cardTitle: {
+    color: '#0f172a',
+    fontSize: 25,
+    fontWeight: '900',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modeTabs: {
+    backgroundColor: '#edf2f7',
     borderRadius: 8,
-    height: 56,
+    flexDirection: 'row',
+    marginBottom: 18,
+    padding: 4,
+  },
+  modeTab: {
+    alignItems: 'center',
+    borderRadius: 6,
+    flex: 1,
     justifyContent: 'center',
-    marginBottom: 16,
-    width: 56,
+    minHeight: 40,
   },
-  logoText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '900',
+  modeTabActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  title: {
-    color: '#101828',
-    fontSize: 28,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: '#667085',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginBottom: 22,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  fieldGroup: {
-    marginBottom: 14,
-  },
-  label: {
-    color: '#344054',
+  modeTabText: {
+    color: '#64748b',
     fontSize: 13,
     fontWeight: '800',
-    marginBottom: 7,
   },
-  input: {
-    backgroundColor: '#f8fbfd',
-    borderColor: '#d8e3ed',
+  modeTabTextActive: {
+    color: '#1a56db',
+  },
+
+  // Error
+  errorBox: {
+    alignItems: 'center',
+    backgroundColor: '#fff1f0',
+    borderColor: '#ffd6d4',
     borderRadius: 8,
     borderWidth: 1,
-    color: '#101828',
-    fontSize: 15,
-    fontWeight: '700',
-    minHeight: 48,
+    flexDirection: 'row',
+    marginBottom: 14,
     paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  errorDot: {
+    color: '#e03131',
+    fontSize: 8,
+    marginRight: 8,
   },
   errorText: {
-    color: '#b42318',
+    color: '#c92a2a',
+    flex: 1,
     fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontWeight: '500',
+    lineHeight: 18,
   },
+  successBox: {
+    alignItems: 'center',
+    backgroundColor: '#ecfdf3',
+    borderColor: '#abefc6',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  successDot: {
+    color: '#027a48',
+    fontSize: 10,
+    fontWeight: '800',
+    marginRight: 8,
+  },
+  successText: {
+    color: '#027a48',
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+
+  // CTA
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#0b6bcb',
-    borderRadius: 8,
+    backgroundColor: '#1a56db',
+    borderRadius: 12,
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: 6,
     minHeight: 50,
+    shadowColor: '#1a56db',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  primaryButtonPressed: {
+    backgroundColor: '#1344b8',
+    shadowOpacity: 0.1,
+    transform: [{ scale: 0.98 }],
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
-  linkButton: {
+
+  // Forgot
+  forgotButton: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderRadius: 8,
   },
-  linkText: {
-    color: '#0b6bcb',
-    fontSize: 14,
-    fontWeight: '900',
+  forgotButtonPressed: {
+    opacity: 0.6,
   },
+  forgotText: {
+    color: '#1a56db',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Footer divider
+  footerDivider: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  footerLine: {
+    backgroundColor: '#e2e8f0',
+    flex: 1,
+    height: 1,
+  },
+  footerOr: {
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+  },
+
+  // Footer sign-up
   footerRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
   },
   footerText: {
-    color: '#667085',
-    fontSize: 14,
-    fontWeight: '700',
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '400',
   },
   footerLink: {
-    color: '#0b6bcb',
-    fontSize: 14,
-    fontWeight: '900',
+    color: '#1a56db',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  linkPressed: {
+    opacity: 0.6,
   },
 });
 

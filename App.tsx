@@ -19,6 +19,7 @@ const MenuScreen = require('./src/pages/Menu').default;
 const ProfileScreen = require('./src/pages/Profile').default;
 
 const backIcon = require('./assets/images/back.png');
+const mainLogo = require('./assets/images/mainlogo.png');
 
 type RouteName =
   | 'login'
@@ -57,7 +58,6 @@ const routeTitles: Record<RouteName, string> = {
   profile: 'Profile',
 };
 
-// Routes that show the back icon image instead of the hamburger menu
 const backIconRoutes: RouteName[] = ['scan', 'settings', 'menu', 'profile'];
 
 function App() {
@@ -102,10 +102,19 @@ function App() {
                 )}
               </Pressable>
 
-              <View>
-                <Text style={styles.eyebrow}>Secure identity</Text>
-                <Text style={styles.title}>{routeTitles[route]}</Text>
-              </View>
+              {/* ── Center: logo on home, title text on other routes ── */}
+              {isHomeRoute ? (
+                <Image
+                  source={mainLogo}
+                  style={styles.headerLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View>
+                  <Text style={styles.eyebrow}>Secure identity</Text>
+                  <Text style={styles.title}>{routeTitles[route]}</Text>
+                </View>
+              )}
 
               <Pressable
                 accessibilityRole="button"
@@ -175,11 +184,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 32,
   },
+  // ── Logo in header ──
+  headerLogo: {
+    height: 40,
+    width: 150,
+  },
   eyebrow: {
     color: '#667085',
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0,
     textAlign: 'center',
     textTransform: 'uppercase',
   },

@@ -1,7 +1,19 @@
 import React from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { logoutApi } from '../redux/loginSlice';
 
 function Settings({ navigate }) {
+  const handleSignOut = async () => {
+    try {
+      const logoutDetails = await logoutApi();
+      console.log('Settings Logout Full Response:', logoutDetails);
+    } catch (logoutError) {
+      console.log('Settings Logout Error:', logoutError);
+    } finally {
+      navigate('login');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -32,7 +44,7 @@ function Settings({ navigate }) {
           accessibilityRole="button"
           accessibilityLabel="Sign out"
           style={styles.signOutButton}
-          onPress={() => navigate('login')}
+          onPress={handleSignOut}
         >
           <Text style={styles.signOutText}>Sign Out</Text>
         </Pressable>

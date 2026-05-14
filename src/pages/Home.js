@@ -7,8 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import { getCurrentAuthSession } from '../redux/loginSlice';
 
-const logo = require('../../assets/images/Faceicon.webp');
+const logo = require('../../assets/images/mainlogo.png');
 const accessIcon = require('../../assets/images/access.png');
 const alertIcon = require('../../assets/images/alert.png');
 const historyIcon = require('../../assets/images/history.png');
@@ -27,11 +28,32 @@ function QuickActionCard({title, text, icon}) {
 }
 
 function Home({navigate}) {
+  const session = getCurrentAuthSession();
+  const user = session?.user || {};
+  const company = session?.company || {};
+  const role = user.role || session?.mode || 'admin';
+  const userName =
+    user.admin_name ||
+    user.emp_name ||
+    user.emp_first_name ||
+    user.admin_username ||
+    user.emp_username ||
+    'User';
+  const locationName =
+    user.location ||
+    company.comp_city ||
+    company.comp_state ||
+    company.comp_country ||
+    'Location not available';
+  const accessLabel = role === 'admin' ? 'Admin access' : 'Employee access';
+
   return (
     <ScrollView
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       style={styles.scrollView}>
+
+     
 
       {/* ── Body ── */}
       <View style={styles.body}>
@@ -39,18 +61,22 @@ function Home({navigate}) {
         {/* Profile card */}
         <View style={styles.profileCard}>
           <View style={styles.profileMain}>
-            <View style={styles.profileAvatarBox}>
-              <Image source={logo} style={styles.logo} />
-            </View>
             <View style={styles.identityText}>
-              <Text style={styles.name}>Sindhu FaceID</Text>
-              <Text style={styles.profile}>Staff access profile</Text>
+              <Text style={styles.name} numberOfLines={1}>{userName}</Text>
+              <Text style={styles.profile} numberOfLines={1}>{accessLabel}</Text>
+              <Text style={styles.location} numberOfLines={1}>{locationName}</Text>
             </View>
           </View>
-          <View style={styles.verifiedPill}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Verified profile"
+            style={({ pressed }) => [
+              styles.verifiedPill,
+              pressed && styles.verifiedPillPressed,
+            ]}>
             <View style={styles.verifiedDot} />
-            <Text style={styles.verifiedText}>Verified</Text>
-          </View>
+            <Text style={styles.verifiedText}>Verify</Text>
+          </Pressable>
         </View>
 
         {/* Scan card */}
@@ -122,10 +148,24 @@ const styles = StyleSheet.create({
 
   // ── Scroll & layout ──────────────────────────────────────────────────────
   scrollView: {
-    backgroundColor: '#F0F5FB',
+    backgroundColor: '#F4F8FD',
   },
   content: {
     paddingBottom: 28,
+  },
+
+  // ── Header ───────────────────────────────────────────────────────────────
+  header: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderBottomColor: '#D2E1F4',
+    borderBottomWidth: 1,
+    paddingBottom: 12,
+    paddingTop: 14,
+  },
+  headerLogo: {
+    height: 36,
+    width: 160,
   },
 
   // ── Body wrapper ─────────────────────────────────────────────────────────
@@ -137,78 +177,82 @@ const styles = StyleSheet.create({
   // ── Profile card ─────────────────────────────────────────────────────────
   profileCard: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#C5D6EE',
-    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderColor: '#D2E1F4',
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 18,
-    paddingHorizontal: 14,
+    minHeight: 90,
+    paddingHorizontal: 16,
     paddingVertical: 16,
+    shadowColor: '#2664b4',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
   },
   profileMain: {
-    alignItems: 'center',
-    flexDirection: 'row',
     flex: 1,
-    gap: 12,
-  },
-  profileAvatarBox: {
-    backgroundColor: '#DDE8F5',
-    borderRadius: 12,
-    padding: 4,
-  },
-  logo: {
-    borderRadius: 10,
-    height: 46,
-    width: 46,
   },
   identityText: {
     flex: 1,
+    paddingRight: 10,
   },
   name: {
-    color: '#0C2D5A',
-    fontSize: 17,
+    color: '#113A70',
+    fontSize: 22,
     fontWeight: '900',
   },
   profile: {
-    color: '#5A7BA8',
+    color: '#2664b4',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  location: {
+    color: '#6B7F99',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 3,
   },
   verifiedPill: {
     alignItems: 'center',
-    backgroundColor: '#EDFAF3',
-    borderColor: '#BBF0D4',
+    backgroundColor: '#EAF2FF',
+    borderColor: '#BFD5F3',
     borderRadius: 20,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 5,
+    marginLeft: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  verifiedPillPressed: {
+    opacity: 0.75,
+  },
   verifiedDot: {
-    backgroundColor: '#12B76A',
+    backgroundColor: '#2664b4',
     borderRadius: 4,
     height: 7,
     width: 7,
   },
   verifiedText: {
-    color: '#027A48',
+    color: '#174F93',
     fontSize: 12,
     fontWeight: '900',
   },
 
   // ── Scan card ─────────────────────────────────────────────────────────────
   scanCard: {
-    backgroundColor: '#0D2E4E',
-    borderRadius: 14,
+    backgroundColor: '#113A70',
+    borderRadius: 18,
     marginTop: 14,
     padding: 18,
   },
   scanEyebrow: {
-    color: '#5A8BAA',
+    color: '#9FC2EC',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.3,
@@ -221,8 +265,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   scanMetaRow: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(255,255,255,0.14)',
     borderRadius: 10,
     borderWidth: 1,
     flexDirection: 'row',
@@ -246,7 +290,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   metaValueReady: {
-    color: '#38BDF8',
+    color: '#7CC6FF',
   },
   metaDivider: {
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -254,12 +298,12 @@ const styles = StyleSheet.create({
   },
   scanButton: {
     alignItems: 'center',
-    backgroundColor: '#38BDF8',
+    backgroundColor: '#2664b4',
     borderRadius: 10,
     paddingVertical: 14,
   },
   scanButtonText: {
-    color: '#082F49',
+    color: '#fff',
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.3,
@@ -271,11 +315,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: '#5A7BA8',
+    color: '#2664b4',
     fontSize: 11,
-
-
-    
     fontWeight: '800',
     letterSpacing: 1.4,
   },
@@ -287,17 +328,16 @@ const styles = StyleSheet.create({
 
   // ── Quick action card ─────────────────────────────────────────────────────
   quickCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#C5D6EE',
+    backgroundColor: '#fff',
+    borderColor: '#D2E1F4',
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,
-    // Each card takes ~half width minus gap
     width: '47.5%',
   },
   quickIconBox: {
     alignItems: 'center',
-    backgroundColor: '#DDE8F5',
+    backgroundColor: '#EAF2FF',
     borderRadius: 10,
     height: 40,
     justifyContent: 'center',
