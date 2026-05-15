@@ -192,32 +192,6 @@ function Login({ navigate, onSignIn }) {
           <Text style={styles.primaryButtonText}>Continue</Text>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Forgot password"
-          onPress={() => navigate?.('forgot')}
-          style={({ pressed }) => [styles.forgotButton, pressed && styles.forgotButtonPressed]}
-        >
-          <Text style={styles.forgotText}>Forgot your password?</Text>
-        </Pressable>
-
-        <View style={styles.footerDivider}>
-          <View style={styles.footerLine} />
-          <Text style={styles.footerOr}>or</Text>
-          <View style={styles.footerLine} />
-        </View>
-
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Don't have an account?</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Create account"
-            onPress={() => navigate?.('signup')}
-            style={({ pressed }) => pressed && styles.linkPressed}
-          >
-            <Text style={styles.footerLink}> Create one</Text>
-          </Pressable>
-        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -364,58 +338,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Forgot
-  forgotButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-  },
-  forgotButtonPressed: {
-    opacity: 0.6,
-  },
-  forgotText: {
-    color: '#1a56db',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Footer divider
-  footerDivider: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 14,
-  },
-  footerLine: {
-    backgroundColor: '#e2e8f0',
-    flex: 1,
-    height: 1,
-  },
-  footerOr: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '600',
-    paddingHorizontal: 10,
-  },
-
-  // Footer sign-up
-  footerRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  footerText: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '400',
-  },
-  footerLink: {
-    color: '#1a56db',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  linkPressed: {
-    opacity: 0.6,
-  },
 });
 
 export default Login;

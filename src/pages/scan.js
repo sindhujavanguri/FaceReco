@@ -12,7 +12,17 @@ import {
   Camera,
   useCameraDevice,
   useCameraPermission,
+  usePhotoOutput,
 } from 'react-native-vision-camera';
+import {
+  faceAttendancePunchApi,
+  faceAttendanceTodayStatusApi,
+} from '../redux/faceAttendanceSlice';
+import {
+  createFaceEmbeddingPayload,
+  createImageFormFile,
+  faceDetectionOptions,
+} from '../utils/faceEmbedding';
 
 function ScanOverlay() {
   const scanLineY = useRef(new Animated.Value(0)).current;
@@ -67,14 +77,6 @@ function ScanOverlay() {
   );
 }
 
-function PlaceholderFrame() {
-  return (
-    <View style={styles.placeholderFrame}>
-      <ScanOverlay />
-    </View>
-  );
-}
-
 function getDetectionStatus() {
   if (!FaceDetection || typeof FaceDetection.processImage !== 'function') {
     return {ok: false};
@@ -85,10 +87,16 @@ function getDetectionStatus() {
   return {ok: true};
 }
 
-function Scan({navigate}) {
+function Scan({navigate, routeParams}) {
+  const cameraRef = useRef(null);
   const device = useCameraDevice('front');
+  const photoOutput = usePhotoOutput();
   const {hasPermission, requestPermission} = useCameraPermission();
+  const action = routeParams?.mode === 'logout' ? 'logout' : 'login';
+  const actionLabel = action === 'logout' ? 'Logout' : 'Login';
+
   const [cameraEnabled, setCameraEnabled] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [permissionState, setPermissionState] = useState(
     'Camera permission required to begin scanning.',
   );
@@ -97,7 +105,7 @@ function Scan({navigate}) {
   const openFrontCamera = async () => {
     if (!device) {
       setPermissionState('No front camera found on this device.');
-      return;
+      return false;
     }
     if (!hasPermission) {
       setPermissionState('Requesting permission...');
@@ -105,28 +113,86 @@ function Scan({navigate}) {
       if (!granted) {
         setCameraEnabled(false);
         setPermissionState('Camera permission denied.');
-        return;
+        return false;
       }
     }
     setCameraEnabled(true);
     setPermissionState('Live camera active.');
+    return true;
+  };
+
+  const captureAndPunch = async () => {
+    if (!cameraEnabled || !hasPermission || !device) {
+      await openFrontCamera();
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setPermissionState(`${actionLabel} face scan in progress...`);
+
+      const photo = await photoOutput.capturePhotoToFile(
+        {enableShutterSound: true, flashMode: 'off'},
+        {},
+      );
+
+      if (!photo?.filePath) {
+        setPermissionState('Unable to save selfie. Please try again.');
+        return;
+      }
+
+      const uri = photo.filePath.startsWith('file://')
+        ? photo.filePath
+        : `file://${photo.filePath}`;
+      const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
+
+      if (!faces?.length) {
+        setPermissionState('No face detected. Please scan again.');
+        return;
+      }
+
+      if (faces.length > 1) {
+        setPermissionState('Multiple faces detected. Please scan only one face.');
+        return;
+      }
+
+      const faceEmbedding = createFaceEmbeddingPayload({
+        face: faces[0],
+        filePath: photo.filePath,
+        uri,
+      });
+
+      await faceAttendancePunchApi({
+        action,
+        faceEmbedding,
+        selfie: createImageFormFile(uri, `${action}-selfie.jpg`),
+      });
+      await faceAttendanceTodayStatusApi();
+
+      setPermissionState(`${actionLabel} successful.`);
+      navigate?.('home', {
+        faceRegistered: true,
+        refreshFaceAttendance: Date.now(),
+      });
+    } catch (error) {
+      console.log(`Face ${actionLabel} Scan Error:`, error?.response || error);
+      setPermissionState(error.message || `${actionLabel} failed. Please try again.`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const showCamera = cameraEnabled && hasPermission && device;
 
   return (
     <View style={styles.container}>
-
-      {/* ── Body ── */}
       <View style={styles.body}>
-
-        {/* Camera card — flex:1 grows to fill all available vertical space */}
         <View style={styles.cameraCard}>
           <View style={styles.cameraHeader}>
             <View style={styles.headerLeft}>
               <View style={[styles.liveDot, showCamera && styles.liveDotActive]} />
               <Text style={styles.cameraLabel}>
-                {showCamera ? 'Live' : 'Front Camera'}
+                {showCamera ? `${actionLabel} Scan` : 'Front Camera'}
               </Text>
             </View>
             <View style={[styles.modeBadge, showCamera && styles.modeBadgeActive]}>
@@ -136,12 +202,13 @@ function Scan({navigate}) {
             </View>
           </View>
 
-          {/* Preview — flex:1 fills the card height */}
           <View style={styles.previewBox}>
             {showCamera && (
               <Camera
+                ref={cameraRef}
                 device={device}
                 isActive={true}
+                outputs={[photoOutput]}
                 resizeMode="cover"
                 style={StyleSheet.absoluteFill}
               />
@@ -152,7 +219,6 @@ function Scan({navigate}) {
           </View>
         </View>
 
-        {/* Status Row */}
         <View style={styles.statusRow}>
           <View style={styles.statusItem}>
             <Text style={styles.statusLabel}>PERMISSION</Text>
@@ -169,9 +235,9 @@ function Scan({navigate}) {
           </View>
           <View style={styles.statusSep} />
           <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>CAMERA</Text>
+            <Text style={styles.statusLabel}>MODE</Text>
             <Text style={[styles.statusValue, showCamera && styles.statusValueOk]} numberOfLines={1}>
-              {showCamera ? 'Active' : 'Inactive'}
+              {actionLabel}
             </Text>
           </View>
         </View>
@@ -179,19 +245,26 @@ function Scan({navigate}) {
         <Text style={styles.infoText}>{permissionState}</Text>
       </View>
 
-      {/* ── Footer buttons ── */}
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open front camera"
-          style={({pressed}) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
-          onPress={openFrontCamera}>
-          <Text style={styles.primaryButtonText}>Enable Camera</Text>
+          accessibilityLabel={`${actionLabel} face scan`}
+          disabled={isSubmitting}
+          style={({pressed}) => [
+            styles.primaryButton,
+            isSubmitting && styles.primaryButtonDisabled,
+            pressed && styles.primaryButtonPressed,
+          ]}
+          onPress={captureAndPunch}>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting
+              ? `${actionLabel}...`
+              : showCamera
+                ? `Scan Face for ${actionLabel}`
+                : 'Enable Camera'}
+          </Text>
         </Pressable>
-
-       
       </View>
-
     </View>
   );
 }
@@ -201,16 +274,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f8fb',
   },
-
-  // ── Body fills space above footer ──────────────────────────────────────────
   body: {
     flex: 1,
     paddingHorizontal: 18,
     paddingTop: 4,
     paddingBottom: 12,
   },
-
-  // ── Camera card — flex:1 makes it tall ────────────────────────────────────
   cameraCard: {
     backgroundColor: '#dce8f2',
     borderColor: '#c5d6e8',
@@ -268,8 +337,6 @@ const styles = StyleSheet.create({
   modeBadgeTextActive: {
     color: '#027a48',
   },
-
-  // ── Preview fills card ─────────────────────────────────────────────────────
   previewBox: {
     backgroundColor: '#eaf2f9',
     borderColor: '#b8d0e8',
@@ -277,25 +344,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     overflow: 'hidden',
-  },
-  placeholderFrame: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-
-  // ── Scan overlay ───────────────────────────────────────────────────────────
-  overlay: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  overlayInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cameraFill: {
-    flex: 1,
   },
   overlayCenter: {
     position: 'absolute',
@@ -347,8 +395,6 @@ const styles = StyleSheet.create({
     marginTop: 18,
     textAlign: 'center',
   },
-
-  // ── Status row ─────────────────────────────────────────────────────────────
   statusRow: {
     backgroundColor: '#ffffff',
     borderColor: '#dce8f2',
@@ -381,22 +427,17 @@ const styles = StyleSheet.create({
   statusValueOk: {
     color: '#0b6bcb',
   },
-
-  // ── Info text ──────────────────────────────────────────────────────────────
   infoText: {
-    color: '#93aac2',
+    color: '#64748b',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 10,
     textAlign: 'center',
   },
-
-  // ── Footer ─────────────────────────────────────────────────────────────────
   footer: {
     backgroundColor: '#f5f8fb',
     borderTopColor: '#e8eef5',
     borderTopWidth: 1,
-    gap: 10,
     paddingBottom: 20,
     paddingHorizontal: 18,
     paddingTop: 14,
@@ -410,26 +451,13 @@ const styles = StyleSheet.create({
   primaryButtonPressed: {
     backgroundColor: '#0959a8',
   },
+  primaryButtonDisabled: {
+    opacity: 0.65,
+  },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
-  },
-  ghostButton: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#dce8f2',
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: 14,
-  },
-  ghostButtonPressed: {
-    backgroundColor: '#f5f9fd',
-  },
-  ghostButtonText: {
-    color: '#3d5a75',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
 

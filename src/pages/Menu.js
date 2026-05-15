@@ -1,85 +1,300 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  employeeNavigationApi,
+  getCurrentEmployeeNavigationResponse,
+} from '../redux/employeeSlice';
 
-const menuItems = [
-  ['home', 'Dashboard', 'Face recognition overview'],
-  ['scan', 'Scan', 'Open front camera flow'],
-  ['profile', 'Profile', 'Personal information'],
-  ['settings', 'Settings', 'App controls'],
-];
+const routeByKey = {
+  add_expense: 'addExpense',
+  add_work_report: 'addWorkReport',
+  daily_work_report: 'dailyWorkReport',
+  dashboard: 'home',
+  documents: 'documents',
+  expenses: 'expenses',
+  leave_management: 'leave',
+  monthly_work_report: 'monthlyWorkReport',
+  payroll: 'payroll',
+  profile: 'profile',
+  timesheet: 'timesheet',
+  upload_documents: 'uploadDocuments',
+  view_documents: 'viewDocuments',
+  view_expenses: 'viewExpenses',
+  work_reports: 'workReports',
+};
+
+const menuIcons = {
+  dashboard: require('../../assets/images/home3.png'),
+  documents: require('../../assets/images/documents.png'),
+  expenses: require('../../assets/images/expense.png'),
+  leave_management: require('../../assets/images/leave.png'),
+  payroll: require('../../assets/images/payroll.png'),
+  profile: require('../../assets/images/profil.png'),
+  timesheet: require('../../assets/images/schedule.png'),
+  work_reports: require('../../assets/images/report.png'),
+};
+
+const menuMeta = {
+  dashboard:       { subtitle: 'Overview',       iconBg: '#FEF0E4', iconTint: '#C06A1E' },
+  leave_management:{ subtitle: 'Apply & track',  iconBg: '#E6EEF9', iconTint: '#185FA5' },
+  timesheet:       { subtitle: 'Daily hours',    iconBg: '#E1F5EE', iconTint: '#0F6E56' },
+  payroll:         { subtitle: 'Salary slips',   iconBg: '#EAF3DE', iconTint: '#3B6D11' },
+  expenses:        { subtitle: 'Claims',         iconBg: '#FAEEDA', iconTint: '#854F0B' },
+  work_reports:    { subtitle: 'Daily & monthly',iconBg: '#EEEDFE', iconTint: '#534AB7' },
+  documents:       { subtitle: 'View & upload',  iconBg: '#FCEBEB', iconTint: '#A32D2D' },
+  profile:         { subtitle: 'Your info',      iconBg: '#FBEAF0', iconTint: '#993556' },
+};
+
+const fallbackMeta = { subtitle: '', iconBg: '#F1EFE8', iconTint: '#5F5E5A' };
+
+function MenuItem({ item, index, onPress }) {
+  const icon = menuIcons[item.key];
+  const meta = menuMeta[item.key] || fallbackMeta;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${item.title}`}
+      disabled={!item.enabled}
+      style={({ pressed }) => [
+        styles.menuCard,
+        !item.enabled && styles.disabledCard,
+        pressed && styles.menuCardPressed,
+      ]}
+      onPress={() => onPress(item)}
+    >
+      {/* Icon circle */}
+      <View style={[styles.iconCircle, { backgroundColor: meta.iconBg }]}>
+        {icon ? (
+          <Image
+            source={icon}
+            style={[styles.iconImage, { tintColor: meta.iconTint }]}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={[styles.iconLetter, { color: meta.iconTint }]}>
+            {item.title.charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
+
+      {/* Label row */}
+      <View style={styles.labelRow}>
+        <View style={styles.labelText}>
+          <Text style={styles.menuLabel} numberOfLines={1}>{item.title}</Text>
+          {!!meta.subtitle && (
+            <Text style={styles.menuSub} numberOfLines={1}>{meta.subtitle}</Text>
+          )}
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </View>
+    </Pressable>
+  );
+}
 
 function Menu({ navigate }) {
+  const [navigationResponse, setNavigationResponse] = useState(
+    getCurrentEmployeeNavigationResponse()
+  );
+  const [loading, setLoading] = useState(!getCurrentEmployeeNavigationResponse());
+  const [error, setError] = useState('');
+
+  const loadNavigation = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await employeeNavigationApi();
+      setNavigationResponse(response);
+      setError('');
+    } catch (navigationError) {
+      setError(navigationError.message || 'Unable to load menu.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!navigationResponse) loadNavigation();
+  }, [loadNavigation, navigationResponse]);
+
+  const navigationData = navigationResponse?.data?.data || {};
+  const menu = navigationData.menu || [];
+
+  const handleMenuPress = (item) => {
+    const route = routeByKey[item.key] || 'home';
+    navigate(route);
+  };
+
+  // Pair items into rows of 2
+  const rows = [];
+  for (let i = 0; i < menu.length; i += 2) {
+    rows.push([menu[i], menu[i + 1] || null]);
+  }
+
+  // Skeleton rows while loading
+  const skeletonRows = [[0, 1], [2, 3], [4, 5], [6, 7]];
+
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        {menuItems.map(([route, title, detail], index) => (
-          <Pressable
-            key={route}
-            style={[styles.menuRow, index === 0 && styles.menuRowFirst]}
-            onPress={() => navigate(route)}
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.rowTitle}>{title}</Text>
-              <Text style={styles.rowDetail}>{detail}</Text>
-            </View>
-          </Pressable>
-        ))}
-      </View>
-    </View>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      style={styles.scrollView}
+    >
+      <Text style={styles.sectionLabel}>Quick access</Text>
+
+      {!!error && (
+        <View style={styles.errorCard}>
+          <Text style={styles.errorTitle}>Unable to load menu</Text>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {loading ? (
+        <View style={styles.grid}>
+          {skeletonRows.flat().map((i) => (
+            <View key={i} style={styles.skeletonCard} />
+          ))}
+        </View>
+      ) : (
+        <View style={styles.grid}>
+          {menu.map((item, index) => (
+            <MenuItem key={item.key} item={item} index={index} onPress={handleMenuPress} />
+          ))}
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 18,
+  scrollView: {
+    backgroundColor: '#Fff',
   },
-  card: {
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 36,
+  },
+
+  sectionLabel: {
+    color: '#A0A0A0',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    marginLeft: 2,
+  },
+
+  // ── Grid ─────────────────────────────────────────────────
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+
+  // ── Menu Card ────────────────────────────────────────────
+  menuCard: {
     backgroundColor: '#ffffff',
-    borderColor: '#d8e3ed',
-    borderRadius: 8,
+    borderColor: '#EBEBEB',
+    borderRadius: 16,
     borderWidth: 1,
+    padding: 16,
+    width: '48.5%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  menuCardPressed: {
+    backgroundColor: '#FAFAFA',
+    opacity: 0.9,
+  },
+  disabledCard: {
+    opacity: 0.38,
+  },
+
+  // ── Icon ─────────────────────────────────────────────────
+  iconCircle: {
+    alignItems: 'center',
+    borderRadius: 22,
+    height: 44,
+    justifyContent: 'center',
+    marginBottom: 14,
+    width: 44,
+  },
+  iconImage: {
+    height: 24,
+    width: 24,
+  },
+  iconLetter: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+
+  // ── Label ────────────────────────────────────────────────
+  labelRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  labelText: {
+    flex: 1,
+  },
+  menuLabel: {
+    color: '#1A1A2E',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  menuSub: {
+    color: '#A0A0A0',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  chevron: {
+    color: '#C8C8C8',
+    fontSize: 22,
+    fontWeight: '300',
+    lineHeight: 22,
+    marginLeft: 4,
+  },
+
+  // ── Skeleton ─────────────────────────────────────────────
+  skeletonCard: {
+    backgroundColor: '#EFEFEF',
+    borderRadius: 16,
+    height: 110,
+    width: '48.5%',
+  },
+
+  // ── Error ────────────────────────────────────────────────
+  errorCard: {
+    backgroundColor: '#fff1f0',
+    borderColor: '#ffd6d4',
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
     padding: 14,
   },
-  menuRow: {
-    alignItems: 'center',
-    borderTopColor: '#eef2f6',
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 13,
-  },
-  menuRowFirst: {
-    borderTopWidth: 0,
-  },
-  rowIcon: {
-    alignItems: 'center',
-    backgroundColor: '#eaf5ff',
-    borderRadius: 17,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
-  rowIconText: {
-    color: '#0b6bcb',
-    fontSize: 20,
-    fontWeight: '900',
-    lineHeight: 22,
-  },
-  rowText: {
-    flex: 1,
-  },
-  rowTitle: {
-    color: '#101828',
-    fontSize: 15,
+  errorTitle: {
+    color: '#b42318',
+    fontSize: 14,
     fontWeight: '900',
   },
-  rowDetail: {
-    color: '#667085',
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
+  errorText: {
+    color: '#c92a2a',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
 

@@ -4,7 +4,7 @@ const ADMIN_LOGIN_API_URL = 'https://api.apphrms.com/admin/login.php';
 const ADMIN_LOGOUT_API_URL = 'https://api.apphrms.com/admin/logout.php';
 const EMPLOYEE_LOGIN_API_URL = 'https://api.apphrms.com/employee/login.php';
 const EMPLOYEE_LOGOUT_API_URL = 'https://api.apphrms.com/employee/logout.php';
-const CLIENT_CODE = 'qa2';
+export const CLIENT_CODE = 'qa2';
 
 let latestAuthToken = null;
 let latestLoginMode = 'admin';
@@ -135,6 +135,8 @@ export const loginApi = async ({ email, password, mode = 'admin' }) => {
 };
 
 export const getCurrentAuthSession = () => latestAuthSession;
+export const getCurrentAuthToken = () => latestAuthToken;
+export const getCurrentLoginMode = () => latestLoginMode;
 
 export const logoutApi = async (token = latestAuthToken, mode = latestLoginMode) => {
   const authConfig = getAuthConfig(mode);
