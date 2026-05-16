@@ -27,6 +27,10 @@ const SettingsScreen = require('./src/pages/Settings').default;
 const MenuScreen = require('./src/pages/Menu').default;
 const ProfileScreen = require('./src/pages/Profile').default;
 const LeaveScreen = require('./src/pages/Leave').default;
+const EmployeeLeavesScreen = require('./src/pages/EmployeeLeaves').default;
+const LeaveCategoriesScreen = require('./src/pages/Categories').default;
+const LeaveListScreen = require('./src/pages/LeaveList').default;
+const ApplyLeaveScreen = require('./src/pages/ApplyLeave').default;
 const TimesheetScreen = require('./src/pages/Timesheet').default;
 const PayrollScreen = require('./src/pages/Payroll').default;
 const DocumentsScreen = require('./src/pages/Documents').default;
@@ -52,6 +56,10 @@ type RouteName =
   | 'menu'
   | 'profile'
   | 'leave'
+  | 'employeeLeaves'
+  | 'leaveCategories'
+  | 'leaveList'
+  | 'applyLeave'
   | 'timesheet'
   | 'payroll'
   | 'documents'
@@ -80,6 +88,10 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   menu: MenuScreen,
   profile: ProfileScreen,
   leave: LeaveScreen,
+  employeeLeaves: EmployeeLeavesScreen,
+  leaveCategories: LeaveCategoriesScreen,
+  leaveList: LeaveListScreen,
+  applyLeave: ApplyLeaveScreen,
   timesheet: TimesheetScreen,
   payroll: PayrollScreen,
   documents: DocumentsScreen,
@@ -103,6 +115,10 @@ const routeTitles: Record<RouteName, string> = {
   menu: 'Menu',
   profile: 'Profile',
   leave: 'Leave',
+  employeeLeaves: 'Leave Management',
+  leaveCategories: 'Leave Categories',
+  leaveList: 'Employee Leave List',
+  applyLeave: 'Apply Leave',
   timesheet: 'Timesheet',
   payroll: 'Payroll',
   documents: 'Documents',

@@ -19,7 +19,7 @@ const routeByKey = {
   dashboard: 'home',
   documents: 'documents',
   expenses: 'expenses',
-  leave_management: 'leave',
+  leave_management: 'employeeLeaves',
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
