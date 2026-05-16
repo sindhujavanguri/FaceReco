@@ -51,7 +51,7 @@ const readStatusFlag = (source, keys) => {
       return true;
     }
     if (typeof value === 'string') {
-      const normalized = value.toLowerCase();
+      const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
       if (['yes', 'true', 'registered', 'login', 'logged_in', 'in', 'present'].includes(normalized)) {
         return true;
       }
@@ -94,9 +94,11 @@ function Home({ navigate, routeParams }) {
     getCurrentMonthlyAttendanceResponse()
   );
   const [faceStatusResponse, setFaceStatusResponse] = useState(
-    getCurrentFaceAttendanceTodayStatusResponse()
+    isEmployeeAccess ? null : getCurrentFaceAttendanceTodayStatusResponse()
   );
-  const [faceRegisteredInThisFlow, setFaceRegisteredInThisFlow] = useState(false);
+  const [attendanceStep, setAttendanceStep] = useState(
+    isEmployeeAccess ? 'register' : 'login'
+  );
   const [error, setError] = useState('');
   const [faceStatusError, setFaceStatusError] = useState('');
   const month = getCurrentMonth();
@@ -154,12 +156,6 @@ function Home({ navigate, routeParams }) {
     routeParams?.refreshFaceAttendance,
   ]);
 
-  useEffect(() => {
-    if (routeParams?.faceRegistered === true) {
-      setFaceRegisteredInThisFlow(true);
-    }
-  }, [routeParams?.faceRegistered]);
-
   const dashboardData = dashboardResponse?.data?.data || {};
   const dashboardEmployee = dashboardData.employee || {};
   const sessionUser = session?.user || {};
@@ -185,7 +181,13 @@ function Home({ navigate, routeParams }) {
   const monthlyAttendance = attendanceResponse?.data?.data || {};
   const attendanceSummary = monthlyAttendance.calculated_summary || {};
   const todayFaceStatus = getStatusData(faceStatusResponse);
-  const isFaceRegistered = faceRegisteredInThisFlow;
+  const faceRegisteredFlag = readStatusFlag(todayFaceStatus, [
+    'face_registered',
+    'is_face_registered',
+    'registered',
+    'is_registered',
+    'registration_status',
+  ]);
   const loggedInFlag = readStatusFlag(todayFaceStatus, [
     'logged_in',
     'is_logged_in',
@@ -196,12 +198,43 @@ function Home({ navigate, routeParams }) {
   ]);
   const isFaceLoggedIn = Boolean(loggedInFlag);
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
-  const faceActionLabel = isFaceLoggedIn ? 'Logout' : 'Login';
+  const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
+  const currentScanLabel = currentScanMode === 'logout' ? 'Logout' : 'Login';
+  const isAttendanceDone = attendanceStep === 'done';
+  const shouldRegisterFace = isEmployeeAccess && attendanceStep === 'register';
   const noticesCount = dashboardData.notices?.length || 0;
   const birthdaysCount = dashboardData.todays_birthdays?.length || 0;
   const profileUpdateStatus = dashboardData.profile_update_request
     ? 'Request in progress'
     : 'No pending request';
+
+  useEffect(() => {
+    if (routeParams?.faceActionCompleted === 'logout') {
+      setAttendanceStep('done');
+      return;
+    }
+
+    if (routeParams?.faceActionCompleted === 'login' || isFaceLoggedIn) {
+      setAttendanceStep('logout');
+      return;
+    }
+
+    if (routeParams?.faceRegistered === true) {
+      setAttendanceStep('login');
+      return;
+    }
+
+    if (isEmployeeAccess && faceRegisteredFlag === false) {
+      setAttendanceStep('register');
+    }
+  }, [
+    faceRegisteredFlag,
+    isFaceLoggedIn,
+    isEmployeeAccess,
+    routeParams?.faceActionCompleted,
+    routeParams?.faceRegistered,
+    routeParams?.refreshFaceAttendance,
+  ]);
 
   return (
     <View style={styles.screen}>
@@ -241,36 +274,46 @@ function Home({ navigate, routeParams }) {
           <Text style={styles.cardEyebrow}>ATTENDANCE</Text>
           <Text style={styles.cardTitle}>Today Attendance</Text>
 
-          {isEmployeeAccess && (
+          {(isEmployeeAccess || session?.mode === 'admin') && (
             <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  isFaceRegistered ? `${faceActionLabel} face scan` : 'Register face'
-                }
-                style={({ pressed }) => [
-                  styles.faceActionButton,
-                  pressed && styles.actionButtonPressed,
-                ]}
-                onPress={() =>
-                  isFaceRegistered
-                    ? navigate('scan', { mode: faceActionMode })
-                    : navigate('faceRegister')
-                }
-              >
-                <Text style={styles.faceActionButtonText}>
-                  {isFaceRegistered ? faceActionLabel : 'Register'}
-                </Text>
-              </Pressable>
+              {isEmployeeAccess && attendanceStep === 'register' && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Register face"
+                  style={({ pressed }) => [
+                    styles.faceActionButton,
+                    styles.registerButton,
+                    pressed && styles.actionButtonPressed,
+                  ]}
+                  onPress={() => navigate('faceRegister')}
+                >
+                  <Text style={styles.faceActionButtonText}>Register Face</Text>
+                </Pressable>
+              )}
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Start face scan"
-                style={styles.scanButton}
-                onPress={() => navigate('scan', { mode: faceActionMode })}
-              >
-                <Text style={styles.scanButtonText}>Start Scan</Text>
-              </Pressable>
+              {attendanceStep !== 'register' && !isAttendanceDone && (
+                <>
+                  <View style={styles.faceActionStatus}>
+                    <Text style={styles.faceActionStatusLabel}>Current Action</Text>
+                    <Text style={styles.faceActionStatusValue}>{currentScanLabel}</Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Start ${currentScanLabel.toLowerCase()} face scan`}
+                    style={styles.scanButton}
+                    onPress={() => navigate('scan', { mode: currentScanMode })}
+                  >
+                    <Text style={styles.scanButtonText}>Start Scan</Text>
+                  </Pressable>
+                </>
+              )}
+
+              {isAttendanceDone && (
+                <View style={styles.attendanceDoneBox}>
+                  <Text style={styles.attendanceDoneText}>Attendance done</Text>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -337,12 +380,16 @@ function Home({ navigate, routeParams }) {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open scan"
+          accessibilityLabel={shouldRegisterFace ? 'Register face' : 'Open scan'}
           style={({ pressed }) => [
             styles.taskBarItem,
             pressed && styles.taskBarItemPressed,
           ]}
-          onPress={() => navigate('scan', { mode: faceActionMode })}
+          onPress={() =>
+            shouldRegisterFace
+              ? navigate('faceRegister')
+              : navigate('scan', { mode: faceActionMode })
+          }
         >
           <Image source={scanIcon} style={styles.taskBarIcon} resizeMode="contain" />
           <Text style={styles.taskBarText}>Scan</Text>
@@ -478,6 +525,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
     minHeight: 44,
+  },
+  registerButton: {
+    marginBottom: 10,
+  },
+  faceActionStatus: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.28)',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  faceActionStatusLabel: {
+    color: '#9FC2EC',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  faceActionStatusValue: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+  attendanceDoneBox: {
+    alignItems: 'center',
+    backgroundColor: '#ECFDF3',
+    borderColor: '#ABEFC6',
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  attendanceDoneText: {
+    color: '#027A48',
+    fontSize: 15,
+    fontWeight: '900',
   },
   actionButtonPressed: {
     opacity: 0.78,

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -28,8 +27,6 @@ function ApplyLeave({ navigate }) {
   const [endDate, setEndDate] = useState(today);
   const [reason, setReason] = useState('');
   const [remarks, setRemarks] = useState('');
-  const [loadingCategories, setLoadingCategories] = useState(!cachedCategories.length);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [popup, setPopup] = useState(null);
 
@@ -43,7 +40,6 @@ function ApplyLeave({ navigate }) {
 
   const loadCategories = useCallback(async () => {
     try {
-      setLoadingCategories(true);
       const response = await leaveCategoriesApi();
       const nextCategories = response?.data?.data?.categories || [];
       setCategories(nextCategories);
@@ -53,8 +49,6 @@ function ApplyLeave({ navigate }) {
       setError('');
     } catch (categoryError) {
       setError(categoryError.message || 'Unable to load leave categories.');
-    } finally {
-      setLoadingCategories(false);
     }
   }, [selectedCategoryId]);
 
@@ -69,7 +63,6 @@ function ApplyLeave({ navigate }) {
     }
 
     try {
-      setSubmitting(true);
       setError('');
       const response = await applyLeaveApi({
         leave_cat_id: Number(selectedCategoryId),
@@ -94,8 +87,6 @@ function ApplyLeave({ navigate }) {
         success: false,
         message: applyError.message || 'Unable to apply leave.',
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -114,32 +105,27 @@ function ApplyLeave({ navigate }) {
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
+        {/* High-Impact Solid Header Banner */}
         <View style={styles.hero}>
-          <Text style={styles.eyebrow}>APPLY LEAVE</Text>
+          <Text style={styles.eyebrow}>LEAVE APPLICATION</Text>
           <Text style={styles.title}>Create leave request</Text>
-          <Text style={styles.subtitle}>Choose a category, date range, and reason.</Text>
+          <Text style={styles.subtitle}>Choose a category, date range, and reason parameters.</Text>
         </View>
-
-        {loadingCategories && (
-          <View style={styles.stateCard}>
-            <ActivityIndicator color="#2664b4" />
-            <Text style={styles.stateText}>Loading leave options...</Text>
-          </View>
-        )}
 
         {!!error && (
           <View style={styles.errorCard}>
-            <Text style={styles.errorTitle}>Apply leave</Text>
+            <Text style={styles.errorTitle}>SUBMISSION SYSTEM WARNING</Text>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
 
+        {/* Premium Neat Glassy-profile Card Form */}
         <View style={styles.formCard}>
-          <Text style={styles.fieldLabel}>Leave Category</Text>
+          
+          <Text style={styles.fieldLabel}>Select Leave Category</Text>
           <View style={styles.categoryGrid}>
             {categories.map((category) => {
-              const active =
-                String(category.leave_cat_id) === String(selectedCategoryId);
+              const active = String(category.leave_cat_id) === String(selectedCategoryId);
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -147,12 +133,7 @@ function ApplyLeave({ navigate }) {
                   style={[styles.categoryChip, active && styles.categoryChipActive]}
                   onPress={() => setSelectedCategoryId(String(category.leave_cat_id))}
                 >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      active && styles.categoryChipTextActive,
-                    ]}
-                  >
+                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
                     {category.leave_cat_name}
                   </Text>
                 </Pressable>
@@ -160,17 +141,22 @@ function ApplyLeave({ navigate }) {
             })}
           </View>
 
-          <Text style={styles.selectedText}>
-            Selected: {selectedCategory?.leave_cat_name || 'No category selected'}
-          </Text>
+          <View style={styles.selectionInfoPill}>
+            <Text style={styles.selectedText}>
+              Selected Category: <Text style={styles.boldSelectionText}>{selectedCategory?.leave_cat_name || 'None'}</Text>
+            </Text>
+          </View>
 
+          <View style={styles.cardDivider} />
+
+          {/* Double Column Date Inputs */}
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
               <Text style={styles.fieldLabel}>Start Date</Text>
               <TextInput
                 autoCapitalize="none"
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="#98A2B3"
+                placeholderTextColor="#94A3B8"
                 style={styles.input}
                 value={startDate}
                 onChangeText={setStartDate}
@@ -181,7 +167,7 @@ function ApplyLeave({ navigate }) {
               <TextInput
                 autoCapitalize="none"
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="#98A2B3"
+                placeholderTextColor="#94A3B8"
                 style={styles.input}
                 value={endDate}
                 onChangeText={setEndDate}
@@ -192,42 +178,39 @@ function ApplyLeave({ navigate }) {
           <Text style={styles.fieldLabel}>Leave Reason</Text>
           <TextInput
             multiline
-            placeholder="Reason"
-            placeholderTextColor="#98A2B3"
+            placeholder="State your clear reason here..."
+            placeholderTextColor="#94A3B8"
             style={[styles.input, styles.textArea]}
             value={reason}
             onChangeText={setReason}
           />
 
-          <Text style={styles.fieldLabel}>Leave Remarks</Text>
+          <Text style={styles.fieldLabel}>Leave Remarks (Optional)</Text>
           <TextInput
             multiline
-            placeholder="Optional remarks"
-            placeholderTextColor="#98A2B3"
+            placeholder="Add any internal remarks..."
+            placeholderTextColor="#94A3B8"
             style={[styles.input, styles.textArea]}
             value={remarks}
             onChangeText={setRemarks}
           />
 
+          {/* High-Impact Solid Primary Action Button */}
           <Pressable
             accessibilityRole="button"
-            disabled={submitting}
             style={({ pressed }) => [
               styles.submitButton,
               pressed && styles.submitButtonPressed,
-              submitting && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
           >
-            {submitting ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.submitText}>Submit Apply Leave</Text>
-            )}
+            <Text style={styles.submitText}>SUBMIT LEAVE APPLICATION</Text>
           </Pressable>
+
         </View>
       </ScrollView>
 
+      {/* Modern High-Contrast Status Modal Overlay */}
       <Modal transparent visible={!!popup} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.popupCard}>
@@ -235,12 +218,13 @@ function ApplyLeave({ navigate }) {
               <Text style={styles.tickText}>{popup?.success ? '✓' : '!'}</Text>
             </View>
             <Text style={styles.popupTitle}>
-              {popup?.success ? 'Leave applied successfully' : 'Leave request message'}
+              {popup?.success ? 'Application Confirmed' : 'Request Process Message'}
             </Text>
             <Text style={styles.popupMessage}>{popup?.message}</Text>
+            
             <Pressable style={styles.popupButton} onPress={closePopup}>
               <Text style={styles.popupButtonText}>
-                {popup?.success ? 'View Leave List' : 'Close'}
+                {popup?.success ? 'VIEW LEAVE HISTORY LIST' : 'CLOSE SYSTEM WINDOW'}
               </Text>
             </Pressable>
           </View>
@@ -252,90 +236,89 @@ function ApplyLeave({ navigate }) {
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F4F8FD', // Soft brand-tinted layout canvas
     flex: 1,
   },
   scrollView: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F4F8FD',
   },
   content: {
-    paddingBottom: 30,
+    paddingBottom: 40,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 16,
   },
+  // Bold Corporate Header Profile
   hero: {
     backgroundColor: '#2664b4',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 14,
+    padding: 20,
+    shadowColor: '#102a43',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   eyebrow: {
     color: '#FCE3C1',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 1.1,
+    letterSpacing: 1.5,
   },
   title: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
-    marginTop: 7,
+    marginTop: 6,
+    letterSpacing: -0.3,
   },
   subtitle: {
     color: '#D8E7FA',
     fontSize: 13,
     fontWeight: '700',
-    lineHeight: 19,
+    lineHeight: 18,
     marginTop: 6,
-  },
-  stateCard: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#D2E1F4',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 14,
-  },
-  stateText: {
-    color: '#667085',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 8,
   },
   errorCard: {
     backgroundColor: '#fff1f0',
-    borderColor: '#ffd6d4',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 14,
+    borderColor: '#fca5a5',
+    borderRadius: 12,
+    borderWidth: 2,
+    marginTop: 16,
+    padding: 16,
   },
   errorTitle: {
     color: '#b42318',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
   errorText: {
-    color: '#c92a2a',
+    color: '#991b1b',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 4,
   },
+  // Crisp Glassy White-Profile Container Card
   formCard: {
     backgroundColor: '#ffffff',
     borderColor: '#D2E1F4',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 14,
-    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    marginTop: 16,
+    padding: 16,
+    shadowColor: '#102a43',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   fieldLabel: {
-    color: '#2664b4',
-    fontSize: 11,
+    color: '#113A70',
+    fontSize: 12,
     fontWeight: '900',
-    letterSpacing: 0.7,
+    letterSpacing: 0.8,
     marginBottom: 8,
-    marginTop: 12,
+    marginTop: 14,
     textTransform: 'uppercase',
   },
   categoryGrid: {
@@ -347,8 +330,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F8FD',
     borderColor: '#D2E1F4',
     borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
   categoryChipActive: {
@@ -357,63 +340,86 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     color: '#2664b4',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
   },
   categoryChipTextActive: {
     color: '#ffffff',
   },
+  selectionInfoPill: {
+    backgroundColor: '#FFF1E5',
+    borderColor: 'rgba(240, 140, 60, 0.25)',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 12,
+  },
   selectedText: {
-    color: '#6B7F99',
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 10,
+    color: '#f08c3c',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  boldSelectionText: {
+    fontWeight: '900',
+  },
+  cardDivider: {
+    height: 1.5,
+    backgroundColor: '#EAF2FF',
+    marginVertical: 10,
   },
   dateRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   dateField: {
     flex: 1,
   },
+  // Structural Clear Text Inputs
   input: {
     backgroundColor: '#F8FAFC',
     borderColor: '#D2E1F4',
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 10,
+    borderWidth: 1.5,
     color: '#101828',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    minHeight: 48,
-    paddingHorizontal: 12,
+    minHeight: 50,
+    paddingHorizontal: 14,
   },
   textArea: {
-    minHeight: 92,
-    paddingTop: 12,
+    minHeight: 100,
+    paddingTop: 14,
     textAlignVertical: 'top',
   },
+  // Vibrant High-Contrast Primary Buttons
   submitButton: {
     alignItems: 'center',
     backgroundColor: '#2664b4',
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
-    marginTop: 18,
-    minHeight: 52,
+    marginTop: 24,
+    minHeight: 54,
+    shadowColor: '#2664b4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   submitButtonPressed: {
-    backgroundColor: '#1F5598',
-  },
-  submitButtonDisabled: {
-    opacity: 0.7,
+    backgroundColor: '#1C4D8C',
+    transform: [{ scale: 0.99 }],
   },
   submitText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
+  // Modern Layout Modal Popups
   modalOverlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 42, 67, 0.42)',
+    backgroundColor: 'rgba(16, 42, 67, 0.55)', // Dark premium blur backdrop mask
     flex: 1,
     justifyContent: 'center',
     padding: 24,
@@ -421,54 +427,63 @@ const styles = StyleSheet.create({
   popupCard: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    maxWidth: 330,
-    padding: 22,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#D2E1F4',
+    maxWidth: 340,
+    padding: 24,
     width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
   },
   tickCircle: {
     alignItems: 'center',
     backgroundColor: '#12B76A',
-    borderRadius: 30,
-    height: 60,
+    borderRadius: 32,
+    height: 64,
     justifyContent: 'center',
-    width: 60,
+    width: 64,
   },
   warningCircle: {
-    backgroundColor: '#f5a623',
+    backgroundColor: '#f08c3c',
   },
   tickText: {
     color: '#ffffff',
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
-    lineHeight: 38,
   },
   popupTitle: {
     color: '#113A70',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
-    marginTop: 14,
+    marginTop: 16,
     textAlign: 'center',
   },
   popupMessage: {
     color: '#6B7F99',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 19,
+    lineHeight: 20,
     marginTop: 8,
     textAlign: 'center',
   },
   popupButton: {
     backgroundColor: '#f08c3c',
-    borderRadius: 8,
-    marginTop: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    width: '100%',
+    alignItems: 'center',
   },
   popupButtonText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
 });
 

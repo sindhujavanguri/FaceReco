@@ -171,6 +171,7 @@ function Scan({navigate, routeParams}) {
 
       setPermissionState(`${actionLabel} successful.`);
       navigate?.('home', {
+        faceActionCompleted: action,
         faceRegistered: true,
         refreshFaceAttendance: Date.now(),
       });
