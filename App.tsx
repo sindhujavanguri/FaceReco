@@ -31,6 +31,9 @@ const EmployeeLeavesScreen = require('./src/pages/EmployeeLeaves').default;
 const LeaveCategoriesScreen = require('./src/pages/Categories').default;
 const LeaveListScreen = require('./src/pages/LeaveList').default;
 const ApplyLeaveScreen = require('./src/pages/ApplyLeave').default;
+const AdminLeavesScreen = require('./src/pages/AdminLeaves').default;
+const AdminLeaveListScreen = require('./src/pages/AdminLeaveList').default;
+const AdminLeaveStatusScreen = require('./src/pages/AdminLeaveStatus').default;
 const TimesheetScreen = require('./src/pages/Timesheet').default;
 const PayrollScreen = require('./src/pages/Payroll').default;
 const DocumentsScreen = require('./src/pages/Documents').default;
@@ -60,6 +63,9 @@ type RouteName =
   | 'leaveCategories'
   | 'leaveList'
   | 'applyLeave'
+  | 'adminLeaves'
+  | 'adminLeaveList'
+  | 'adminLeaveStatus'
   | 'timesheet'
   | 'payroll'
   | 'documents'
@@ -92,6 +98,9 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   leaveCategories: LeaveCategoriesScreen,
   leaveList: LeaveListScreen,
   applyLeave: ApplyLeaveScreen,
+  adminLeaves: AdminLeavesScreen,
+  adminLeaveList: AdminLeaveListScreen,
+  adminLeaveStatus: AdminLeaveStatusScreen,
   timesheet: TimesheetScreen,
   payroll: PayrollScreen,
   documents: DocumentsScreen,
@@ -119,6 +128,9 @@ const routeTitles: Record<RouteName, string> = {
   leaveCategories: 'Leave Categories',
   leaveList: 'Employee Leave List',
   applyLeave: 'Apply Leave',
+  adminLeaves: 'Leave Management',
+  adminLeaveList: 'Admin Leave List',
+  adminLeaveStatus: 'Admin Leave Status',
   timesheet: 'Timesheet',
   payroll: 'Payroll',
   documents: 'Documents',

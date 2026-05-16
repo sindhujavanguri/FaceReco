@@ -11,8 +11,9 @@ import {
   employeeNavigationApi,
   getCurrentEmployeeNavigationResponse,
 } from '../redux/employeeSlice';
+import { getCurrentAuthSession } from '../redux/loginSlice';
 
-const routeByKey = {
+const employeeRouteByKey = {
   add_expense: 'addExpense',
   add_work_report: 'addWorkReport',
   daily_work_report: 'dailyWorkReport',
@@ -29,6 +30,67 @@ const routeByKey = {
   view_expenses: 'viewExpenses',
   work_reports: 'workReports',
 };
+
+const adminRouteByKey = {
+  add_expense: 'addExpense',
+  add_work_report: 'addWorkReport',
+  daily_work_report: 'dailyWorkReport',
+  dashboard: 'home',
+  documents: 'documents',
+  expenses: 'expenses',
+  leave_management: 'adminLeaves',
+  monthly_work_report: 'monthlyWorkReport',
+  payroll: 'payroll',
+  profile: 'profile',
+  timesheet: 'timesheet',
+  upload_documents: 'uploadDocuments',
+  view_documents: 'viewDocuments',
+  view_expenses: 'viewExpenses',
+  work_reports: 'workReports',
+};
+
+const adminMenu = [
+  {
+    enabled: true,
+    key: 'dashboard',
+    title: 'Dashboard',
+  },
+  {
+    enabled: true,
+    key: 'profile',
+    title: 'Employee Profile',
+  },
+  {
+    enabled: true,
+    key: 'timesheet',
+    title: 'Timesheet',
+  },
+  {
+    enabled: true,
+    key: 'leave_management',
+    title: 'Leave Management',
+  },
+  {
+    enabled: true,
+    key: 'payroll',
+    title: 'Payroll',
+  },
+  {
+    enabled: true,
+    key: 'documents',
+    title: 'Documents',
+  },
+  {
+    enabled: true,
+    key: 'work_reports',
+    title: 'Work Reports',
+  },
+  {
+    enabled: true,
+    key: 'expenses',
+    title: 'Expenses',
+  },
+];
 
 const menuIcons = {
   dashboard: require('../../assets/images/home3.png'),
@@ -100,13 +162,23 @@ function MenuItem({ item, index, onPress }) {
 }
 
 function Menu({ navigate }) {
+  const session = getCurrentAuthSession();
+  const isAdmin = session?.mode !== 'employee';
   const [navigationResponse, setNavigationResponse] = useState(
     getCurrentEmployeeNavigationResponse()
   );
-  const [loading, setLoading] = useState(!getCurrentEmployeeNavigationResponse());
+  const [loading, setLoading] = useState(
+    !isAdmin && !getCurrentEmployeeNavigationResponse()
+  );
   const [error, setError] = useState('');
 
   const loadNavigation = useCallback(async () => {
+    if (isAdmin) {
+      setLoading(false);
+      setError('');
+      return;
+    }
+
     try {
       setLoading(true);
       const response = await employeeNavigationApi();
@@ -117,16 +189,17 @@ function Menu({ navigate }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (!navigationResponse) loadNavigation();
-  }, [loadNavigation, navigationResponse]);
+    if (isAdmin || !navigationResponse) loadNavigation();
+  }, [isAdmin, loadNavigation, navigationResponse]);
 
   const navigationData = navigationResponse?.data?.data || {};
-  const menu = navigationData.menu || [];
+  const menu = isAdmin ? adminMenu : navigationData.menu || [];
 
   const handleMenuPress = (item) => {
+    const routeByKey = isAdmin ? adminRouteByKey : employeeRouteByKey;
     const route = routeByKey[item.key] || 'home';
     navigate(route);
   };
