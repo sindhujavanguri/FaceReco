@@ -19,6 +19,7 @@ import {
 import {
   faceAttendanceTodayStatusApi,
   getCurrentFaceAttendanceTodayStatusResponse,
+  getCurrentFaceAttendanceRegisterResponse,
 } from '../redux/faceAttendanceSlice';
 import { getCurrentAuthSession } from '../redux/loginSlice';
 
@@ -44,7 +45,9 @@ const formatValue = (value, fallback = 'Not available') =>
 
 const getStatusData = (response) => response?.data?.data || response?.data || {};
 
-const readStatusFlag = (source, keys) => {
+const getRegistrationData = (response) => response?.data?.data || response?.data || {};
+
+const readBooleanFlag = (source, keys, truthyWords = ['yes', 'true', 'registered']) => {
   for (const key of keys) {
     const value = source?.[key];
     if (value === true || value === 1 || value === '1') {
@@ -52,7 +55,7 @@ const readStatusFlag = (source, keys) => {
     }
     if (typeof value === 'string') {
       const normalized = value.trim().toLowerCase().replace(/\s+/g, '_');
-      if (['yes', 'true', 'registered', 'login', 'logged_in', 'in', 'present'].includes(normalized)) {
+      if (truthyWords.includes(normalized)) {
         return true;
       }
       if (['no', 'false', 'not_registered', 'logout', 'logged_out', 'out'].includes(normalized)) {
@@ -65,6 +68,32 @@ const readStatusFlag = (source, keys) => {
   }
   return undefined;
 };
+
+const readRegistrationFlag = (source) =>
+  readBooleanFlag(source, [
+    'face_registered',
+    'is_face_registered',
+    'registered',
+    'is_registered',
+    'has_face',
+    'has_face_embedding',
+    'registration_status',
+    'face_status',
+  ]);
+
+const readLoggedInFlag = (source) =>
+  readBooleanFlag(
+    source,
+    [
+      'logged_in',
+      'is_logged_in',
+      'punched_in',
+      'is_punched_in',
+      'login_status',
+      'attendance_status',
+    ],
+    ['yes', 'true', 'logged_in', 'in', 'login', 'present'],
+  );
 
 function SummaryCard({ label, value, tone }) {
   return (
@@ -86,7 +115,14 @@ function UpdateRow({ label, value }) {
 
 function Home({ navigate, routeParams }) {
   const session = getCurrentAuthSession();
-  const isEmployeeAccess = session?.mode === 'employee';
+  const isEmployeeAccess =
+    session?.mode === 'employee' ||
+    Boolean(
+      session?.user?.emp_id ||
+        session?.user?.employee_id ||
+        session?.user?.emp_name ||
+        session?.user?.emp_username,
+    );
   const [dashboardResponse, setDashboardResponse] = useState(
     getCurrentEmployeeDashboardResponse()
   );
@@ -181,21 +217,15 @@ function Home({ navigate, routeParams }) {
   const monthlyAttendance = attendanceResponse?.data?.data || {};
   const attendanceSummary = monthlyAttendance.calculated_summary || {};
   const todayFaceStatus = getStatusData(faceStatusResponse);
-  const faceRegisteredFlag = readStatusFlag(todayFaceStatus, [
-    'face_registered',
-    'is_face_registered',
-    'registered',
-    'is_registered',
-    'registration_status',
-  ]);
-  const loggedInFlag = readStatusFlag(todayFaceStatus, [
-    'logged_in',
-    'is_logged_in',
-    'punched_in',
-    'is_punched_in',
-    'login_status',
-    'attendance_status',
-  ]);
+  const latestRegisterStatus = getRegistrationData(getCurrentFaceAttendanceRegisterResponse());
+  const routeFaceRegisteredFlag = routeParams?.faceRegistered === true;
+  const apiFaceRegisteredFlag = readRegistrationFlag(todayFaceStatus);
+  const registerResponseFlag = readRegistrationFlag(latestRegisterStatus);
+  const faceRegisteredFlag =
+    routeFaceRegisteredFlag ||
+    apiFaceRegisteredFlag === true ||
+    registerResponseFlag === true;
+  const loggedInFlag = readLoggedInFlag(todayFaceStatus);
   const isFaceLoggedIn = Boolean(loggedInFlag);
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
@@ -209,6 +239,11 @@ function Home({ navigate, routeParams }) {
     : 'No pending request';
 
   useEffect(() => {
+    if (!isEmployeeAccess) {
+      setAttendanceStep('login');
+      return;
+    }
+
     if (routeParams?.faceActionCompleted === 'logout') {
       setAttendanceStep('done');
       return;
@@ -219,14 +254,12 @@ function Home({ navigate, routeParams }) {
       return;
     }
 
-    if (routeParams?.faceRegistered === true) {
+    if (faceRegisteredFlag === true) {
       setAttendanceStep('login');
       return;
     }
 
-    if (isEmployeeAccess && faceRegisteredFlag === false) {
-      setAttendanceStep('register');
-    }
+    setAttendanceStep('register');
   }, [
     faceRegisteredFlag,
     isFaceLoggedIn,
@@ -291,6 +324,33 @@ function Home({ navigate, routeParams }) {
                 </Pressable>
               )}
 
+              {isEmployeeAccess && faceRegisteredFlag && (
+                <View style={styles.faceProfileActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="View face profile"
+                    style={({ pressed }) => [
+                      styles.faceProfileButton,
+                      pressed && styles.actionButtonPressed,
+                    ]}
+                    onPress={() => navigate('faceProfileView')}
+                  >
+                    <Text style={styles.faceProfileButtonText}>View Face</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit face profile"
+                    style={({ pressed }) => [
+                      styles.faceProfileButton,
+                      pressed && styles.actionButtonPressed,
+                    ]}
+                    onPress={() => navigate('faceRegisterEdit')}
+                  >
+                    <Text style={styles.faceProfileButtonText}>Edit Face</Text>
+                  </Pressable>
+                </View>
+              )}
+
               {attendanceStep !== 'register' && !isAttendanceDone && (
                 <>
                   <View style={styles.faceActionStatus}>
@@ -304,7 +364,7 @@ function Home({ navigate, routeParams }) {
                     style={styles.scanButton}
                     onPress={() => navigate('scan', { mode: currentScanMode })}
                   >
-                    <Text style={styles.scanButtonText}>Start Scan</Text>
+                    <Text style={styles.scanButtonText}>{currentScanLabel}</Text>
                   </Pressable>
                 </>
               )}
@@ -571,6 +631,24 @@ const styles = StyleSheet.create({
   faceActionButtonText: {
     color: '#113A70',
     fontSize: 15,
+    fontWeight: '900',
+  },
+  faceProfileActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  faceProfileButton: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 42,
+  },
+  faceProfileButtonText: {
+    color: '#113A70',
+    fontSize: 13,
     fontWeight: '900',
   },
 

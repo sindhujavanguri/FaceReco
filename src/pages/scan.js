@@ -167,7 +167,11 @@ function Scan({navigate, routeParams}) {
         faceEmbedding,
         selfie: createImageFormFile(uri, `${action}-selfie.jpg`),
       });
-      await faceAttendanceTodayStatusApi();
+      try {
+        await faceAttendanceTodayStatusApi();
+      } catch (statusError) {
+        console.log(`Face ${actionLabel} Today Status Refresh Error:`, statusError?.response || statusError);
+      }
 
       setPermissionState(`${actionLabel} successful.`);
       navigate?.('home', {

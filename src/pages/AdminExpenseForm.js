@@ -7,50 +7,97 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {addEmployeeExpenseApi} from '../redux/Employeeexpensesslice';
+import {
+  addAdminExpenseApi,
+  editAdminExpenseApi,
+} from '../redux/adminexpenseslice';
+import {getCurrentAuthSession} from '../redux/loginSlice';
 
 const getToday = () => new Date().toISOString().slice(0, 10);
 
-function AddExpense({navigate}) {
-  const [date, setDate] = useState(getToday());
-  const [amount, setAmount] = useState('');
-  const [narration, setNarration] = useState('');
+function AdminExpenseForm({navigate, routeParams}) {
+  const session = getCurrentAuthSession();
+  const isAdmin = session?.mode !== 'employee';
+  const expense = routeParams?.expense || null;
+  const isEditing = !!expense?.id;
+  const [empCode, setEmpCode] = useState(expense?.emp_code || '');
+  const [date, setDate] = useState(expense?.date || getToday());
+  const [amount, setAmount] = useState(
+    expense?.amount !== undefined ? String(expense.amount) : '',
+  );
+  const [narration, setNarration] = useState(expense?.narration || '');
   const [saving, setSaving] = useState(false);
-  const [statusText, setStatusText] = useState('Fill expense details.');
+  const [statusText, setStatusText] = useState(
+    isEditing ? `Editing expense #${expense.id}` : 'Fill expense details.',
+  );
 
-  const handleDone = async () => {
-    if (!date.trim() || !amount.trim() || !narration.trim()) {
-      setStatusText('Date, amount and narration are required.');
+  const handleSubmit = async () => {
+    if (!isAdmin) {
+      setStatusText('Admin login required.');
+      return;
+    }
+
+    if (!empCode.trim() || !date.trim() || !amount.trim()) {
+      setStatusText('Employee code, date and amount are required.');
       return;
     }
 
     try {
       setSaving(true);
-      setStatusText('Adding expense...');
-      await addEmployeeExpenseApi({
+      setStatusText(isEditing ? 'Updating expense...' : 'Adding expense...');
+
+      const payload = {
         amount: amount.trim(),
         date: date.trim(),
+        emp_code: empCode.trim(),
         narration: narration.trim(),
-      });
-      setStatusText('Expense added successfully.');
-      navigate?.('expenses', {refreshExpenses: Date.now()});
+      };
+
+      if (isEditing) {
+        await editAdminExpenseApi({...payload, expenseId: expense.id});
+      } else {
+        await addAdminExpenseApi(payload);
+      }
+
+      setStatusText(isEditing ? 'Expense updated successfully.' : 'Expense added successfully.');
+      navigate?.('adminExpensesList', {refreshExpenses: Date.now()});
     } catch (error) {
-      console.log('Add Expense Page Error:', error?.response || error);
-      setStatusText(error.message || 'Add expense failed.');
+      console.log('Admin Expense Form Page Error:', error?.response || error);
+      setStatusText(error.message || 'Expense save failed.');
     } finally {
       setSaving(false);
     }
   };
 
+  if (!isAdmin) {
+    return (
+      <View style={styles.lockedScreen}>
+        <Text style={styles.lockedTitle}>Admin access only</Text>
+        <Text style={styles.lockedText}>Please login as admin to manage expenses.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Add Expense</Text>
+          <Text style={styles.formTitle}>{isEditing ? 'Edit Expense' : 'Add Expense'}</Text>
+
+          <Text style={styles.inputLabel}>Employee Code</Text>
+          <TextInput
+            accessibilityLabel="Admin expense employee code"
+            autoCapitalize="characters"
+            onChangeText={setEmpCode}
+            placeholder="AZ-113"
+            placeholderTextColor="#93aac2"
+            style={styles.input}
+            value={empCode}
+          />
 
           <Text style={styles.inputLabel}>Date</Text>
           <TextInput
-            accessibilityLabel="Expense date"
+            accessibilityLabel="Admin expense date"
             onChangeText={setDate}
             placeholder="YYYY-MM-DD"
             placeholderTextColor="#93aac2"
@@ -60,7 +107,7 @@ function AddExpense({navigate}) {
 
           <Text style={styles.inputLabel}>Amount</Text>
           <TextInput
-            accessibilityLabel="Expense amount"
+            accessibilityLabel="Admin expense amount"
             keyboardType="decimal-pad"
             onChangeText={setAmount}
             placeholder="0.00"
@@ -71,10 +118,10 @@ function AddExpense({navigate}) {
 
           <Text style={styles.inputLabel}>Narration</Text>
           <TextInput
-            accessibilityLabel="Expense narration"
+            accessibilityLabel="Admin expense narration"
             multiline
             onChangeText={setNarration}
-            placeholder="Enter expense narration"
+            placeholder="Expense details"
             placeholderTextColor="#93aac2"
             style={[styles.input, styles.textArea]}
             textAlignVertical="top"
@@ -85,9 +132,9 @@ function AddExpense({navigate}) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Done add expense"
+            accessibilityLabel={isEditing ? 'Update admin expense' : 'Add admin expense'}
             disabled={saving}
-            onPress={handleDone}
+            onPress={handleSubmit}
             style={({pressed}) => [
               styles.doneButton,
               saving && styles.buttonDisabled,
@@ -95,7 +142,7 @@ function AddExpense({navigate}) {
             ]}
           >
             <Text style={styles.doneButtonText}>
-              {saving ? 'Saving...' : 'Done'}
+              {saving ? 'Saving...' : isEditing ? 'Update' : 'Add'}
             </Text>
           </Pressable>
         </View>
@@ -115,7 +162,7 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: '#ffffff',
     borderColor: '#d2e1f4',
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
     padding: 14,
   },
@@ -123,7 +170,7 @@ const styles = StyleSheet.create({
     color: '#113a70',
     fontSize: 20,
     fontWeight: '900',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   inputLabel: {
     color: '#6b7f99',
@@ -167,6 +214,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
+  lockedScreen: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  lockedTitle: {
+    color: '#113a70',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  lockedText: {
+    color: '#6b7f99',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   buttonDisabled: {
     opacity: 0.65,
   },
@@ -175,4 +241,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddExpense;
+export default AdminExpenseForm;

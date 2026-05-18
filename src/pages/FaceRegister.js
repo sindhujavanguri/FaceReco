@@ -18,8 +18,33 @@ import {faceAttendanceRegisterApi, faceAttendanceTodayStatusApi} from '../redux/
 import {
   createFaceEmbeddingPayload,
   createImageFormFile,
+  createRegistrationEmbeddingPayload,
   faceDetectionOptions,
 } from '../utils/faceEmbedding';
+
+const MIN_FACE_SAMPLES = 1;
+const MAX_FACE_SAMPLES = 4;
+
+const formatEmbeddingPreview = (embedding = []) => {
+  if (!Array.isArray(embedding) || !embedding.length) {
+    return 'Embedding not available';
+  }
+
+  const preview = embedding
+    .slice(0, 6)
+    .map((value) => Number(value).toFixed(3))
+    .join(', ');
+
+  return `[${preview}${embedding.length > 6 ? ', ...' : ''}]`;
+};
+
+const formatEmbeddingPattern = (embedding = []) => {
+  if (!Array.isArray(embedding) || !embedding.length) {
+    return '[]';
+  }
+
+  return `[${embedding.map((value) => Number(value).toFixed(3)).join(', ')}]`;
+};
 
 function FaceRegister({navigate}) {
   const cameraRef = useRef(null);
@@ -28,12 +53,18 @@ function FaceRegister({navigate}) {
   const {hasPermission, requestPermission} = useCameraPermission();
 
   const [cameraEnabled, setCameraEnabled] = useState(false);
-  const [capturedFace, setCapturedFace] = useState(null);
+  const [capturedFaces, setCapturedFaces] = useState([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusText, setStatusText] = useState('Open camera and capture your face.');
+  const [statusText, setStatusText] = useState(
+    `Open camera and capture 1 to ${MAX_FACE_SAMPLES} face images.`,
+  );
 
   const showCamera = cameraEnabled && hasPermission && device;
+  const capturedCount = capturedFaces.length;
+  const registrationReady = capturedCount >= MIN_FACE_SAMPLES;
+  const latestCapturedFace = capturedFaces[capturedCount - 1];
+  const latestEmbeddingCount = latestCapturedFace?.faceEmbedding?.length || 0;
 
   const openCamera = async () => {
     if (!device) {
@@ -96,13 +127,21 @@ function FaceRegister({navigate}) {
         filePath: photo.filePath,
         uri,
       });
-
-      setCapturedFace({
+      const nextCaptureNumber = Math.min(capturedCount + 1, MAX_FACE_SAMPLES);
+      const capturedImage = {
         faceEmbedding,
-        file: createImageFormFile(uri, 'face-register.jpg'),
+        file: createImageFormFile(uri, `face-register-${nextCaptureNumber}.jpg`),
+        id: `${Date.now()}-${nextCaptureNumber}`,
         uri,
-      });
-      setStatusText('Face embedding is ready. Tap Register Face.');
+      };
+      const nextCapturedFaces = [...capturedFaces, capturedImage].slice(-MAX_FACE_SAMPLES);
+
+      setCapturedFaces(nextCapturedFaces);
+      setStatusText(
+        nextCapturedFaces.length >= MIN_FACE_SAMPLES
+          ? 'Face embedding is ready. Tap Register Face.'
+          : `Saved ${nextCapturedFaces.length}. Capture ${MIN_FACE_SAMPLES - nextCapturedFaces.length} more face image${MIN_FACE_SAMPLES - nextCapturedFaces.length === 1 ? '' : 's'}.`,
+      );
     } catch (error) {
       console.log('Face Register Capture Error:', error);
       setStatusText('Unable to capture face. Please try again.');
@@ -112,19 +151,24 @@ function FaceRegister({navigate}) {
   };
 
   const handleRegister = async () => {
-    if (!capturedFace) {
-      setStatusText('Capture your face before registering.');
+    if (!registrationReady) {
+      setStatusText(`Capture at least ${MIN_FACE_SAMPLES} face images before registering.`);
       return;
     }
 
     try {
       setIsSubmitting(true);
       setStatusText('Registering face...');
+      const registrationEmbedding = createRegistrationEmbeddingPayload(capturedFaces);
       await faceAttendanceRegisterApi({
-        faceEmbedding: capturedFace.faceEmbedding,
-        faceImage: capturedFace.file,
+        faceEmbedding: registrationEmbedding,
+        faceImage: latestCapturedFace.file,
       });
-      await faceAttendanceTodayStatusApi();
+      try {
+        await faceAttendanceTodayStatusApi();
+      } catch (statusError) {
+        console.log('Face Register Today Status Refresh Error:', statusError?.response || statusError);
+      }
       setStatusText('Face registered successfully.');
       navigate?.('home', {
         faceRegistered: true,
@@ -167,8 +211,8 @@ function FaceRegister({navigate}) {
                 resizeMode="cover"
                 style={StyleSheet.absoluteFill}
               />
-            ) : capturedFace?.uri ? (
-              <Image source={{uri: capturedFace.uri}} style={StyleSheet.absoluteFill} />
+            ) : latestCapturedFace?.uri ? (
+              <Image source={{uri: latestCapturedFace.uri}} style={StyleSheet.absoluteFill} />
             ) : (
               <View style={styles.previewPlaceholder}>
                 <Text style={styles.previewIcon}>+</Text>
@@ -180,12 +224,57 @@ function FaceRegister({navigate}) {
 
           <Text style={styles.statusText}>{statusText}</Text>
 
-          <View style={styles.embeddingBox}>
-            <Text style={styles.embeddingLabel}>FACE EMBEDDING</Text>
-            <Text style={styles.embeddingValue} numberOfLines={3}>
-              {capturedFace
-                ? JSON.stringify(capturedFace.faceEmbedding)
-                : 'Not captured yet'}
+          {latestCapturedFace && (
+            <View style={styles.latestCapturePanel}>
+              <Text style={styles.embeddingLabel}>CAPTURED IMAGE</Text>
+              <Image source={{uri: latestCapturedFace.uri}} style={styles.latestCaptureImage} />
+              <View style={styles.embeddingStatsRow}>
+                <Text style={styles.embeddingStatsLabel}>FACE EMBEDDING COUNT</Text>
+                <Text style={styles.embeddingStatsValue}>{latestEmbeddingCount}</Text>
+              </View>
+              <Text style={styles.embeddingStatsLabel}>FACE EMBEDDING</Text>
+              <ScrollView
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                style={styles.embeddingPatternScroller}
+              >
+                <Text style={styles.embeddingPatternText}>
+                  {formatEmbeddingPattern(latestCapturedFace.faceEmbedding)}
+                </Text>
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={styles.capturedPanel}>
+            <View style={styles.captureSummaryRow}>
+              <Text style={styles.embeddingLabel}>CAPTURED IMAGES</Text>
+              <Text style={[styles.captureCount, registrationReady && styles.captureCountReady]}>
+                {capturedCount}/{MAX_FACE_SAMPLES}
+              </Text>
+            </View>
+            <View style={styles.thumbnailRow}>
+              {Array.from({length: MAX_FACE_SAMPLES}).map((_, index) => {
+                const capture = capturedFaces[index];
+                return (
+                  <View key={capture?.id || `empty-${index}`} style={styles.captureItem}>
+                    <View style={styles.thumbnailSlot}>
+                      {capture ? (
+                        <Image source={{uri: capture.uri}} style={styles.thumbnailImage} />
+                      ) : (
+                        <Text style={styles.thumbnailEmpty}>{index + 1}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.embeddingPreview} numberOfLines={3}>
+                      {capture ? formatEmbeddingPreview(capture.faceEmbedding) : 'No embedding'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={styles.embeddingValue}>
+              {registrationReady
+                ? `Numeric face vector ready from ${capturedCount} saved image${capturedCount === 1 ? '' : 's'}.`
+                : 'Images will appear here after capture.'}
             </Text>
           </View>
 
@@ -201,18 +290,24 @@ function FaceRegister({navigate}) {
             ]}
           >
             <Text style={styles.secondaryButtonText}>
-              {isCapturing ? 'Capturing...' : showCamera ? 'Capture Face' : 'Open Camera'}
+              {isCapturing
+                ? 'Capturing...'
+                : showCamera
+                  ? capturedCount >= MAX_FACE_SAMPLES
+                    ? 'Replace Oldest Capture'
+                    : 'Capture Face'
+                  : 'Open Camera'}
             </Text>
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Register face"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !registrationReady}
             onPress={handleRegister}
             style={({pressed}) => [
               styles.primaryButton,
-              isSubmitting && styles.buttonDisabled,
+              (isSubmitting || !registrationReady) && styles.buttonDisabled,
               pressed && styles.primaryButtonPressed,
             ]}
           >
@@ -318,7 +413,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
-  embeddingBox: {
+  capturedPanel: {
     backgroundColor: '#f4f8fd',
     borderColor: '#d2e1f4',
     borderRadius: 8,
@@ -326,11 +421,110 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 10,
   },
+  latestCapturePanel: {
+    backgroundColor: '#ffffff',
+    borderColor: '#d2e1f4',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 10,
+  },
+  latestCaptureImage: {
+    aspectRatio: 1,
+    backgroundColor: '#e8f0f8',
+    borderColor: '#c9d9ea',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    width: '100%',
+  },
+  embeddingStatsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  embeddingStatsLabel: {
+    color: '#6b7f99',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  embeddingStatsValue: {
+    color: '#027a48',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  embeddingPatternScroller: {
+    backgroundColor: '#f4f8fd',
+    borderColor: '#d2e1f4',
+    borderRadius: 7,
+    borderWidth: 1,
+    marginTop: 7,
+    maxHeight: 78,
+  },
+  embeddingPatternText: {
+    color: '#113a70',
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+  },
+  captureSummaryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   embeddingLabel: {
     color: '#6b7f99',
     fontSize: 10,
     fontWeight: '900',
-    marginBottom: 5,
+  },
+  captureCount: {
+    color: '#8a99aa',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  captureCountReady: {
+    color: '#027a48',
+  },
+  thumbnailRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  captureItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  thumbnailSlot: {
+    alignItems: 'center',
+    aspectRatio: 1,
+    backgroundColor: '#e8f0f8',
+    borderColor: '#c9d9ea',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    height: '100%',
+    width: '100%',
+  },
+  embeddingPreview: {
+    color: '#3d5a75',
+    fontSize: 9,
+    fontWeight: '700',
+    lineHeight: 12,
+    marginTop: 5,
+    minHeight: 36,
+  },
+  thumbnailEmpty: {
+    color: '#93aac2',
+    fontSize: 14,
+    fontWeight: '900',
   },
   embeddingValue: {
     color: '#113a70',

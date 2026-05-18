@@ -45,13 +45,28 @@ export const buildFaceDescriptorVector = (face = {}) => {
   ];
 };
 
-export const createFaceEmbeddingPayload = ({face, filePath, uri}) => ({
-  capturedAt: new Date().toISOString(),
-  model: FACE_MODEL_NAME,
-  sourceFilePath: filePath,
-  sourceUri: uri,
-  vector: buildFaceDescriptorVector(face),
-});
+export const createFaceEmbeddingPayload = ({face}) =>
+  buildFaceDescriptorVector(face);
+
+export const createRegistrationEmbeddingPayload = (captures = []) => {
+  const validCaptures = captures.filter(
+    (capture) => Array.isArray(capture?.faceEmbedding) && capture.faceEmbedding.length,
+  );
+  const vectors = validCaptures.map((capture) => capture.faceEmbedding);
+
+  if (!vectors.length) {
+    return [];
+  }
+
+  const vectorLength = Math.min(...vectors.map((vector) => vector.length));
+  const averagedVector = Array.from({length: vectorLength}, (_, index) =>
+    normalizeNumber(
+      vectors.reduce((sum, vector) => sum + Number(vector[index] || 0), 0) / vectors.length,
+    ),
+  );
+
+  return averagedVector;
+};
 
 export const createImageFormFile = (uri, name = 'face.jpg') => ({
   name,

@@ -5,12 +5,18 @@ import { FACE_MODEL_NAME } from '../utils/faceEmbedding';
 
 const FACE_ATTENDANCE_REGISTER_API_URL =
   'https://api.apphrms.com/employee/face-attendance/register.php';
+const FACE_ATTENDANCE_EDIT_API_URL =
+  'https://api.apphrms.com/employee/face-attendance/edit.php';
+const FACE_ATTENDANCE_VIEW_API_URL =
+  'https://api.apphrms.com/employee/face-attendance/view.php';
 const FACE_ATTENDANCE_PUNCH_API_URL =
   'https://api.apphrms.com/employee/face-attendance/punch.php';
 const FACE_ATTENDANCE_TODAY_API_URL =
   'https://api.apphrms.com/employee/face-attendance/today.php';
 
 let latestRegisterResponse = null;
+let latestEditResponse = null;
+let latestViewResponse = null;
 let latestLoginPunchResponse = null;
 let latestLogoutPunchResponse = null;
 let latestTodayStatusResponse = null;
@@ -84,7 +90,7 @@ export const faceAttendanceRegisterApi = async ({
 }) => {
   const formData = new FormData();
   formData.append('face_image', faceImage);
-  formData.append('face_embedding', JSON.stringify(faceEmbedding || {}));
+  formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
   formData.append('model_name', modelName);
   formData.append('device_id', deviceId);
 
@@ -119,6 +125,120 @@ export const faceAttendanceRegisterApi = async ({
   return fullResponse;
 };
 
+export const faceAttendanceEditApi = async ({
+  faceEmbedding,
+  faceImage,
+  modelName = FACE_MODEL_NAME,
+  deviceId = getDeviceId(),
+  token = getCurrentAuthToken(),
+}) => {
+  const formData = new FormData();
+  appendIfValue(formData, 'face_image', faceImage);
+  formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
+  formData.append('model_name', modelName);
+  formData.append('device_id', deviceId);
+
+  const config = {
+    method: 'POST',
+    headers: createBaseHeaders(token),
+    body: formData,
+  };
+
+  const response = await fetch(FACE_ATTENDANCE_EDIT_API_URL, config);
+  const data = await parseResponse(response);
+  const fullResponse = createFullResponse({
+    config: {
+      ...config,
+      body: {
+        device_id: deviceId,
+        face_embedding: faceEmbedding,
+        face_image: faceImage,
+        model_name: modelName,
+      },
+    },
+    data,
+    response,
+    url: FACE_ATTENDANCE_EDIT_API_URL,
+  });
+
+  console.log('Face Attendance Edit Full Response:', fullResponse);
+
+  if (!response.ok || isApiFailure(data)) {
+    const error = new Error(data?.message || 'Face profile update failed.');
+    error.response = fullResponse;
+    console.log('Face Attendance Edit Error:', error);
+    throw error;
+  }
+
+  latestEditResponse = fullResponse;
+  return fullResponse;
+};
+
+export const faceAttendanceViewApi = async ({
+  accuracy,
+  action = 'login',
+  addressText,
+  deviceId = getDeviceId(),
+  faceEmbedding,
+  latitude,
+  longitude,
+  selfie,
+  token = getCurrentAuthToken(),
+} = {}) => {
+  const formData = new FormData();
+  appendIfValue(formData, 'selfie', selfie);
+  appendIfValue(formData, 'action', action);
+  appendIfValue(
+    formData,
+    'face_embedding',
+    Array.isArray(faceEmbedding) ? JSON.stringify(faceEmbedding) : faceEmbedding,
+  );
+  appendIfValue(formData, 'latitude', latitude);
+  appendIfValue(formData, 'longitude', longitude);
+  appendIfValue(formData, 'accuracy', accuracy);
+  appendIfValue(formData, 'address_text', addressText);
+  appendIfValue(formData, 'device_id', deviceId);
+
+  const config = {
+    method: 'POST',
+    headers: createBaseHeaders(token),
+    body: formData,
+  };
+
+  const response = await fetch(FACE_ATTENDANCE_VIEW_API_URL, config);
+  const data = await parseResponse(response);
+  const fullResponse = createFullResponse({
+    config: {
+      ...config,
+      body: {
+        accuracy,
+        action,
+        address_text: addressText,
+        device_id: deviceId,
+        face_embedding: faceEmbedding,
+        latitude,
+        longitude,
+        selfie,
+      },
+    },
+    data,
+    response,
+    url: FACE_ATTENDANCE_VIEW_API_URL,
+  });
+
+  console.log('Face Attendance View Full Response:', fullResponse);
+
+  if (!response.ok || isApiFailure(data)) {
+    const error = new Error(data?.message || 'Face profile fetch failed.');
+    error.response = fullResponse;
+    console.log('Face Attendance View Error:', error);
+    throw error;
+  }
+
+  latestViewResponse = fullResponse;
+  return fullResponse;
+};
+
 export const faceAttendancePunchApi = async ({
   action,
   faceEmbedding,
@@ -131,7 +251,7 @@ export const faceAttendancePunchApi = async ({
   const formData = new FormData();
   formData.append('selfie', selfie);
   formData.append('action', normalizedAction);
-  formData.append('face_embedding', JSON.stringify(faceEmbedding || {}));
+  formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
   appendIfValue(formData, 'latitude', latitude);
   appendIfValue(formData, 'longitude', longitude);
 
@@ -205,12 +325,42 @@ export const getCurrentFaceAttendanceTodayStatusResponse = () =>
 
 export const getCurrentFaceAttendanceRegisterResponse = () =>
   latestRegisterResponse;
+export const getCurrentFaceAttendanceEditResponse = () =>
+  latestEditResponse;
+export const getCurrentFaceAttendanceViewResponse = () =>
+  latestViewResponse;
+export const getCurrentFaceAttendanceLoginPunchResponse = () =>
+  latestLoginPunchResponse;
+export const getCurrentFaceAttendanceLogoutPunchResponse = () =>
+  latestLogoutPunchResponse;
 
 export const faceAttendanceRegisterThunk = createAsyncThunk(
   'faceAttendance/register',
   async (payload, {rejectWithValue}) => {
     try {
       return await faceAttendanceRegisterApi(payload);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+export const faceAttendanceEditThunk = createAsyncThunk(
+  'faceAttendance/edit',
+  async (payload, {rejectWithValue}) => {
+    try {
+      return await faceAttendanceEditApi(payload);
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  },
+);
+
+export const faceAttendanceViewThunk = createAsyncThunk(
+  'faceAttendance/view',
+  async (payload = {}, {rejectWithValue}) => {
+    try {
+      return await faceAttendanceViewApi(payload);
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -245,23 +395,29 @@ const faceAttendanceSlice = createSlice({
     error: '',
     latestAction: '',
     loading: false,
+    editFullResponse: null,
     loginPunchFullResponse: null,
     logoutPunchFullResponse: null,
     registerFullResponse: null,
     todayStatus: null,
     todayStatusFullResponse: null,
+    viewFullResponse: null,
   },
   reducers: {
     clearFaceAttendance(state) {
       state.error = '';
       state.latestAction = '';
       state.loading = false;
+      state.editFullResponse = null;
       state.loginPunchFullResponse = null;
       state.logoutPunchFullResponse = null;
       state.registerFullResponse = null;
       state.todayStatus = null;
       state.todayStatusFullResponse = null;
+      state.viewFullResponse = null;
       latestRegisterResponse = null;
+      latestEditResponse = null;
+      latestViewResponse = null;
       latestLoginPunchResponse = null;
       latestLogoutPunchResponse = null;
       latestTodayStatusResponse = null;
@@ -277,6 +433,24 @@ const faceAttendanceSlice = createSlice({
       .addCase(faceAttendanceRegisterThunk.fulfilled, (state, action) => {
         state.loading = false;
         state.registerFullResponse = action.payload;
+      })
+      .addCase(faceAttendanceEditThunk.pending, (state) => {
+        state.loading = true;
+        state.error = '';
+        state.latestAction = 'edit';
+      })
+      .addCase(faceAttendanceEditThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.editFullResponse = action.payload;
+      })
+      .addCase(faceAttendanceViewThunk.pending, (state) => {
+        state.loading = true;
+        state.error = '';
+        state.latestAction = 'view';
+      })
+      .addCase(faceAttendanceViewThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.viewFullResponse = action.payload;
       })
       .addCase(faceAttendancePunchThunk.pending, (state, action) => {
         state.loading = true;

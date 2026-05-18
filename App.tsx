@@ -22,6 +22,8 @@ import {
 const HomeScreen = require('./src/pages/Home').default;
 const LoginScreen = require('./src/pages/login').default;
 const FaceRegisterScreen = require('./src/pages/FaceRegister').default;
+const FaceRegisterEditScreen = require('./src/pages/FaceRegisterEdit').default;
+const FaceProfileViewScreen = require('./src/pages/FaceProfileView').default;
 const ScanScreen = require('./src/pages/scan').default;
 const SettingsScreen = require('./src/pages/Settings').default;
 const MenuScreen = require('./src/pages/Menu').default;
@@ -44,7 +46,10 @@ const AddWorkReportScreen = require('./src/pages/AddWorkReport').default;
 const MonthlyWorkReportScreen = require('./src/pages/MonthlyWorkReport').default;
 const DailyWorkReportScreen = require('./src/pages/DailyWorkReport').default;
 const ExpensesScreen = require('./src/pages/Expenses').default;
+const AdminExpensesListScreen = require('./src/pages/AdminExpensesList').default;
+const AdminExpenseFormScreen = require('./src/pages/AdminExpenseForm').default;
 const AddExpenseScreen = require('./src/pages/AddExpense').default;
+const EditExpenseScreen = require('./src/pages/EditExpense').default;
 const ViewExpensesScreen = require('./src/pages/ViewExpenses').default;
 
 const backIcon = require('./assets/images/back.png');
@@ -54,6 +59,8 @@ type RouteName =
   | 'login'
   | 'home'
   | 'faceRegister'
+  | 'faceRegisterEdit'
+  | 'faceProfileView'
   | 'scan'
   | 'settings'
   | 'menu'
@@ -76,7 +83,10 @@ type RouteName =
   | 'monthlyWorkReport'
   | 'dailyWorkReport'
   | 'expenses'
+  | 'adminExpensesList'
+  | 'adminExpenseForm'
   | 'addExpense'
+  | 'editExpense'
   | 'viewExpenses';
 
 type AppPageProps = {
@@ -89,6 +99,8 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   login: LoginScreen,
   home: HomeScreen,
   faceRegister: FaceRegisterScreen,
+  faceRegisterEdit: FaceRegisterEditScreen,
+  faceProfileView: FaceProfileViewScreen,
   scan: ScanScreen,
   settings: SettingsScreen,
   menu: MenuScreen,
@@ -111,7 +123,10 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   monthlyWorkReport: MonthlyWorkReportScreen,
   dailyWorkReport: DailyWorkReportScreen,
   expenses: ExpensesScreen,
+  adminExpensesList: AdminExpensesListScreen,
+  adminExpenseForm: AdminExpenseFormScreen,
   addExpense: AddExpenseScreen,
+  editExpense: EditExpenseScreen,
   viewExpenses: ViewExpensesScreen,
 };
 
@@ -119,6 +134,8 @@ const routeTitles: Record<RouteName, string> = {
   login: 'Login',
   home: 'Dashboard',
   faceRegister: 'Register Face',
+  faceRegisterEdit: 'Edit Face',
+  faceProfileView: 'View Face',
   scan: 'Scan Face',
   settings: 'Settings',
   menu: 'Menu',
@@ -141,7 +158,10 @@ const routeTitles: Record<RouteName, string> = {
   monthlyWorkReport: 'Monthly Report',
   dailyWorkReport: 'Daily Report',
   expenses: 'Expenses',
+  adminExpensesList: 'Admin Expenses',
+  adminExpenseForm: 'Admin Expense',
   addExpense: 'Add Expense',
+  editExpense: 'Edit Expense',
   viewExpenses: 'View Expenses',
 };
 

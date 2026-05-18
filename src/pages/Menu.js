@@ -27,7 +27,7 @@ const employeeRouteByKey = {
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
-  view_expenses: 'viewExpenses',
+  view_expenses: 'expenses',
   work_reports: 'workReports',
 };
 
@@ -37,7 +37,7 @@ const adminRouteByKey = {
   daily_work_report: 'dailyWorkReport',
   dashboard: 'home',
   documents: 'documents',
-  expenses: 'expenses',
+  expenses: 'adminExpensesList',
   leave_management: 'adminLeaves',
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
@@ -45,7 +45,7 @@ const adminRouteByKey = {
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
-  view_expenses: 'viewExpenses',
+  view_expenses: 'expenses',
   work_reports: 'workReports',
 };
 

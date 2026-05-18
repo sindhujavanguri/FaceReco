@@ -7,18 +7,24 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {addEmployeeExpenseApi} from '../redux/Employeeexpensesslice';
+import {editEmployeeExpenseApi} from '../redux/Employeeexpensesslice';
 
-const getToday = () => new Date().toISOString().slice(0, 10);
-
-function AddExpense({navigate}) {
-  const [date, setDate] = useState(getToday());
-  const [amount, setAmount] = useState('');
-  const [narration, setNarration] = useState('');
+function EditExpense({navigate, routeParams}) {
+  const expense = routeParams?.expense || {};
+  const [date, setDate] = useState(expense.date || '');
+  const [amount, setAmount] = useState(String(expense.amount || ''));
+  const [narration, setNarration] = useState(expense.narration || '');
   const [saving, setSaving] = useState(false);
-  const [statusText, setStatusText] = useState('Fill expense details.');
+  const [statusText, setStatusText] = useState(
+    expense.id ? `Editing expense #${expense.id}` : 'Expense details not found.',
+  );
 
   const handleDone = async () => {
+    if (!expense.id) {
+      setStatusText('Expense ID is missing.');
+      return;
+    }
+
     if (!date.trim() || !amount.trim() || !narration.trim()) {
       setStatusText('Date, amount and narration are required.');
       return;
@@ -26,17 +32,18 @@ function AddExpense({navigate}) {
 
     try {
       setSaving(true);
-      setStatusText('Adding expense...');
-      await addEmployeeExpenseApi({
+      setStatusText('Updating expense...');
+      await editEmployeeExpenseApi({
         amount: amount.trim(),
         date: date.trim(),
+        expenseId: expense.id,
         narration: narration.trim(),
       });
-      setStatusText('Expense added successfully.');
+      setStatusText('Expense updated successfully.');
       navigate?.('expenses', {refreshExpenses: Date.now()});
     } catch (error) {
-      console.log('Add Expense Page Error:', error?.response || error);
-      setStatusText(error.message || 'Add expense failed.');
+      console.log('Edit Expense Page Error:', error?.response || error);
+      setStatusText(error.message || 'Edit expense failed.');
     } finally {
       setSaving(false);
     }
@@ -46,7 +53,8 @@ function AddExpense({navigate}) {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Add Expense</Text>
+          <Text style={styles.formTitle}>Edit Expense</Text>
+          <Text style={styles.expenseId}>Expense ID #{expense.id || '-'}</Text>
 
           <Text style={styles.inputLabel}>Date</Text>
           <TextInput
@@ -85,12 +93,12 @@ function AddExpense({navigate}) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Done add expense"
-            disabled={saving}
+            accessibilityLabel="Done edit expense"
+            disabled={saving || !expense.id}
             onPress={handleDone}
             style={({pressed}) => [
               styles.doneButton,
-              saving && styles.buttonDisabled,
+              (saving || !expense.id) && styles.buttonDisabled,
               pressed && styles.buttonPressed,
             ]}
           >
@@ -123,7 +131,12 @@ const styles = StyleSheet.create({
     color: '#113a70',
     fontSize: 20,
     fontWeight: '900',
-    marginBottom: 14,
+  },
+  expenseId: {
+    color: '#6b7f99',
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 4,
   },
   inputLabel: {
     color: '#6b7f99',
@@ -175,4 +188,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddExpense;
+export default EditExpense;
