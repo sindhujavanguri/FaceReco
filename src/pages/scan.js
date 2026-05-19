@@ -90,6 +90,18 @@ function getDetectionStatus() {
   return {ok: true};
 }
 
+const getApiMessage = (error) =>
+  String(error?.response?.data?.message || error?.message || '').toLowerCase();
+
+const isAlreadyCompletedResponse = (error, action) => {
+  const message = getApiMessage(error);
+  if (action === 'logout') {
+    return message.includes('already') && message.includes('logout');
+  }
+
+  return message.includes('already') && message.includes('log') && message.includes('in');
+};
+
 function Scan({navigate, routeParams}) {
   const cameraRef = useRef(null);
   const autoScanTimerRef = useRef(null);
@@ -133,6 +145,8 @@ function Scan({navigate, routeParams}) {
       return;
     }
 
+    let locationPayload = null;
+
     try {
       setIsSubmitting(true);
       setPermissionState(`${actionLabel} face scan in progress...`);
@@ -165,7 +179,7 @@ function Scan({navigate, routeParams}) {
       }
 
       const faceEmbedding = faceCapture.faceEmbedding;
-      const locationPayload = await getFaceAttendanceLocationPayload();
+      locationPayload = await getFaceAttendanceLocationPayload();
       const profileResponse = await faceAttendanceViewApi({
         action,
         faceEmbedding,
@@ -201,6 +215,15 @@ function Scan({navigate, routeParams}) {
       });
     } catch (error) {
       console.log(`Face ${actionLabel} Scan Error:`, error?.response || error);
+      if (isAlreadyCompletedResponse(error, action)) {
+        navigate?.('home', {
+          faceActionCompleted: action,
+          faceRegistered: true,
+          lastScanLocation: locationPayload,
+          refreshFaceAttendance: Date.now(),
+        });
+        return;
+      }
       setPermissionState(error.message || `${actionLabel} failed. Please try again.`);
     } finally {
       setIsSubmitting(false);

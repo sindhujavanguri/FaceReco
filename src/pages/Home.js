@@ -100,6 +100,52 @@ const readLoggedInFlag = (source) =>
     ['yes', 'true', 'logged_in', 'in', 'login', 'present'],
   );
 
+const findAttendanceValue = (source, keys) => {
+  if (!source || typeof source !== 'object') {
+    return undefined;
+  }
+
+  for (const key of keys) {
+    if (source[key] !== null && source[key] !== undefined && source[key] !== '') {
+      return source[key];
+    }
+  }
+
+  for (const value of Object.values(source)) {
+    const nestedValue = findAttendanceValue(value, keys);
+    if (nestedValue !== undefined) {
+      return nestedValue;
+    }
+  }
+
+  return undefined;
+};
+
+const readTodayLoggedInFlag = (source) => {
+  const directFlag = readLoggedInFlag(source);
+  if (directFlag !== undefined) {
+    return directFlag;
+  }
+
+  const logoutValue = findAttendanceValue(source, [
+    'logout',
+    'logout_time',
+    'logged_out_at',
+    'out_time',
+  ]);
+  if (logoutValue !== undefined) {
+    return false;
+  }
+
+  const loginValue = findAttendanceValue(source, [
+    'login',
+    'login_time',
+    'logged_in_at',
+    'in_time',
+  ]);
+  return loginValue !== undefined ? true : undefined;
+};
+
 function SummaryCard({ label, value, tone }) {
   return (
     <View style={styles.summaryCard}>
@@ -263,7 +309,7 @@ function Home({ navigate, routeParams }) {
     registerResponseFlag === true;
   const routeLoginCompleted = routeParams?.faceActionCompleted === 'login';
   const routeLogoutCompleted = routeParams?.faceActionCompleted === 'logout';
-  const loggedInFlag = readLoggedInFlag(todayFaceStatus);
+  const loggedInFlag = readTodayLoggedInFlag(todayFaceStatus);
   const isFaceLoggedIn = routeLoginCompleted || Boolean(loggedInFlag);
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
