@@ -16,11 +16,12 @@ import {
 } from 'react-native-vision-camera';
 import {faceAttendanceRegisterApi, faceAttendanceTodayStatusApi} from '../redux/faceAttendanceSlice';
 import {
-  createFaceEmbeddingPayload,
   createImageFormFile,
   createRegistrationEmbeddingPayload,
   faceDetectionOptions,
+  validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
+import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
 
 const MIN_FACE_SAMPLES = 1;
 const MAX_FACE_SAMPLES = 4;
@@ -112,21 +113,13 @@ function FaceRegister({navigate}) {
         : `file://${photo.filePath}`;
       const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
 
-      if (!faces?.length) {
-        setStatusText('No face detected. Please retake the photo.');
+      const faceCapture = validateSingleFaceCapture(faces);
+      if (faceCapture.error) {
+        setStatusText(faceCapture.error);
         return;
       }
 
-      if (faces.length > 1) {
-        setStatusText('Multiple faces detected. Please capture only one face.');
-        return;
-      }
-
-      const faceEmbedding = createFaceEmbeddingPayload({
-        face: faces[0],
-        filePath: photo.filePath,
-        uri,
-      });
+      const faceEmbedding = faceCapture.faceEmbedding;
       const nextCaptureNumber = Math.min(capturedCount + 1, MAX_FACE_SAMPLES);
       const capturedImage = {
         faceEmbedding,
@@ -160,9 +153,11 @@ function FaceRegister({navigate}) {
       setIsSubmitting(true);
       setStatusText('Registering face...');
       const registrationEmbedding = createRegistrationEmbeddingPayload(capturedFaces);
+      const locationPayload = await getFaceAttendanceLocationPayload();
       await faceAttendanceRegisterApi({
         faceEmbedding: registrationEmbedding,
         faceImage: latestCapturedFace.file,
+        ...locationPayload,
       });
       try {
         await faceAttendanceTodayStatusApi();
@@ -399,11 +394,11 @@ const styles = StyleSheet.create({
   },
   faceGuide: {
     borderColor: 'rgba(38,100,180,0.65)',
-    borderRadius: 120,
+    borderRadius: 150,
     borderWidth: 2,
-    height: 220,
+    height: 280,
     position: 'absolute',
-    width: 160,
+    width: 210,
   },
   statusText: {
     color: '#5b7289',

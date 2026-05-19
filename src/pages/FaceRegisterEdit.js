@@ -23,21 +23,16 @@ import {
 } from '../redux/faceAttendanceSlice';
 import {
   FACE_MODEL_NAME,
-  createFaceEmbeddingPayload,
   createImageFormFile,
   faceDetectionOptions,
+  parseFaceEmbeddingPayload,
+  validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
+import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
+import {getFaceProfileImageUrl} from '../utils/mediaUrl';
 
 const parseEmbeddingText = (value) => {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
-  } catch (error) {
-    return value
-      .split(',')
-      .map((item) => Number(item.trim()))
-      .filter(Number.isFinite);
-  }
+  return parseFaceEmbeddingPayload(value);
 };
 
 const stringifyEmbedding = (profile = {}) => {
@@ -67,14 +62,23 @@ function FaceRegisterEdit({navigate, routeParams}) {
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [statusText, setStatusText] = useState('Loading face profile...');
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
-  const imageUri = selectedImage?.uri || profile.face_image_path || '';
+  const imageUri = selectedImage?.uri || getFaceProfileImageUrl(profile);
   const showCamera = cameraEnabled && hasPermission && device;
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [imageUri]);
 
   const loadProfile = useCallback(async () => {
     try {
       setStatusText('Fetching current face profile...');
-      const response = await faceAttendanceViewApi({action: 'login'});
+      const locationPayload = await getFaceAttendanceLocationPayload();
+      const response = await faceAttendanceViewApi({
+        action: 'login',
+        ...locationPayload,
+      });
       const nextProfile = response?.data?.data?.face_profile || {};
       setProfile(nextProfile);
       setEmbeddingText(stringifyEmbedding(nextProfile));
@@ -135,26 +139,19 @@ function FaceRegisterEdit({navigate, routeParams}) {
         : `file://${photo.filePath}`;
       const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
 
-      if (!faces?.length) {
-        setStatusText('No face detected. Please retake the photo.');
+      const faceCapture = validateSingleFaceCapture(faces);
+      if (faceCapture.error) {
+        setStatusText(faceCapture.error);
         return;
       }
 
-      if (faces.length > 1) {
-        setStatusText('Multiple faces detected. Please capture only one face.');
-        return;
-      }
-
-      const faceEmbedding = createFaceEmbeddingPayload({
-        face: faces[0],
-        filePath: photo.filePath,
-        uri,
-      });
+      const faceEmbedding = faceCapture.faceEmbedding;
 
       setSelectedImage({
         file: createImageFormFile(uri, 'face-profile-edit.jpg'),
         uri,
       });
+      setImageLoadFailed(false);
       setEmbeddingText(JSON.stringify(faceEmbedding));
       setStatusText('Updated image and embedding ready.');
     } catch (error) {
@@ -213,8 +210,13 @@ function FaceRegisterEdit({navigate, routeParams}) {
                 resizeMode="cover"
                 style={StyleSheet.absoluteFill}
               />
-            ) : imageUri ? (
-              <Image source={{uri: imageUri}} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            ) : imageUri && !imageLoadFailed ? (
+              <Image
+                onError={() => setImageLoadFailed(true)}
+                source={{uri: imageUri}}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
             ) : (
               <View style={styles.imageFallback}>
                 <Text style={styles.imageFallbackText}>No image</Text>
@@ -341,11 +343,11 @@ const styles = StyleSheet.create({
   },
   faceGuide: {
     borderColor: 'rgba(38,100,180,0.65)',
-    borderRadius: 120,
+    borderRadius: 150,
     borderWidth: 2,
-    height: 220,
+    height: 280,
     position: 'absolute',
-    width: 160,
+    width: 210,
   },
   inputLabel: {
     color: '#6b7f99',

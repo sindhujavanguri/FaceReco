@@ -17,12 +17,17 @@ import {
 import {
   faceAttendancePunchApi,
   faceAttendanceTodayStatusApi,
+  faceAttendanceViewApi,
 } from '../redux/faceAttendanceSlice';
 import {
-  createFaceEmbeddingPayload,
+  FACE_MODEL_NAME,
+  compareFaceEmbeddings,
   createImageFormFile,
   faceDetectionOptions,
+  getProfileFaceEmbedding,
+  validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
+import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
 
 function ScanOverlay() {
   const scanLineY = useRef(new Animated.Value(0)).current;
@@ -64,7 +69,7 @@ function ScanOverlay() {
                 {
                   translateY: scanLineY.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [-110, 110],
+                    outputRange: [-135, 135],
                   }),
                 },
               ],
@@ -146,25 +151,39 @@ function Scan({navigate, routeParams}) {
         : `file://${photo.filePath}`;
       const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
 
-      if (!faces?.length) {
-        setPermissionState('No face detected. Please scan again.');
+      const faceCapture = validateSingleFaceCapture(faces);
+      if (faceCapture.error) {
+        setPermissionState(faceCapture.error);
         return;
       }
 
-      if (faces.length > 1) {
-        setPermissionState('Multiple faces detected. Please scan only one face.');
-        return;
-      }
-
-      const faceEmbedding = createFaceEmbeddingPayload({
-        face: faces[0],
-        filePath: photo.filePath,
-        uri,
+      const faceEmbedding = faceCapture.faceEmbedding;
+      const locationPayload = await getFaceAttendanceLocationPayload();
+      const profileResponse = await faceAttendanceViewApi({
+        action,
+        faceEmbedding,
+        ...locationPayload,
       });
+      const profile = profileResponse?.data?.data?.face_profile || {};
+      if (profile.model_name && profile.model_name !== FACE_MODEL_NAME) {
+        setPermissionState('Face profile needs re-registration for accurate verification.');
+        return;
+      }
+
+      const registeredEmbedding = getProfileFaceEmbedding(profile);
+      const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
+
+      if (!faceMatch.isMatch) {
+        setPermissionState(
+          `${faceMatch.reason} Similarity ${faceMatch.similarity.toFixed(3)}.`,
+        );
+        return;
+      }
 
       await faceAttendancePunchApi({
         action,
         faceEmbedding,
+        ...locationPayload,
         selfie: createImageFormFile(uri, `${action}-selfie.jpg`),
       });
       try {
@@ -177,6 +196,7 @@ function Scan({navigate, routeParams}) {
       navigate?.('home', {
         faceActionCompleted: action,
         faceRegistered: true,
+        lastScanLocation: locationPayload,
         refreshFaceAttendance: Date.now(),
       });
     } catch (error) {
@@ -369,12 +389,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(11,107,203,0.05)',
     borderColor: 'rgba(11,107,203,0.25)',
-    borderRadius: 140,
+    borderRadius: 165,
     borderWidth: 1.5,
-    height: 260,
+    height: 315,
     justifyContent: 'center',
     overflow: 'hidden',
-    width: 195,
+    width: 235,
   },
   corner: {
     borderColor: '#0b6bcb',

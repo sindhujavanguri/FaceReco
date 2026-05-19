@@ -42,6 +42,10 @@ const DocumentsScreen = require('./src/pages/Documents').default;
 const UploadDocumentsScreen = require('./src/pages/UploadDocuments').default;
 const ViewDocumentsScreen = require('./src/pages/ViewDocuments').default;
 const WorkReportsScreen = require('./src/pages/WorkReports').default;
+const WorkLogOptionsScreen = require('./src/pages/worklogoptions').default;
+const WorkLogListScreen = require('./src/pages/workloglist').default;
+const AddWorkLogScreen = require('./src/pages/Addworklog').default;
+const EditWorkLogScreen = require('./src/pages/editworklog').default;
 const AddWorkReportScreen = require('./src/pages/AddWorkReport').default;
 const MonthlyWorkReportScreen = require('./src/pages/MonthlyWorkReport').default;
 const DailyWorkReportScreen = require('./src/pages/DailyWorkReport').default;
@@ -79,6 +83,10 @@ type RouteName =
   | 'uploadDocuments'
   | 'viewDocuments'
   | 'workReports'
+  | 'workLogOptions'
+  | 'workLogList'
+  | 'addWorkLog'
+  | 'editWorkLog'
   | 'addWorkReport'
   | 'monthlyWorkReport'
   | 'dailyWorkReport'
@@ -119,6 +127,10 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   uploadDocuments: UploadDocumentsScreen,
   viewDocuments: ViewDocumentsScreen,
   workReports: WorkReportsScreen,
+  workLogOptions: WorkLogOptionsScreen,
+  workLogList: WorkLogListScreen,
+  addWorkLog: AddWorkLogScreen,
+  editWorkLog: EditWorkLogScreen,
   addWorkReport: AddWorkReportScreen,
   monthlyWorkReport: MonthlyWorkReportScreen,
   dailyWorkReport: DailyWorkReportScreen,
@@ -154,6 +166,10 @@ const routeTitles: Record<RouteName, string> = {
   uploadDocuments: 'Upload Documents',
   viewDocuments: 'View Documents',
   workReports: 'Work Reports',
+  workLogOptions: 'Work Log Options',
+  workLogList: 'Work Log List',
+  addWorkLog: 'Add Work Log',
+  editWorkLog: 'Edit Work Log',
   addWorkReport: 'Add Report',
   monthlyWorkReport: 'Monthly Report',
   dailyWorkReport: 'Daily Report',

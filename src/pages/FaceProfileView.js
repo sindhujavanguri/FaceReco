@@ -12,6 +12,12 @@ import {
   faceAttendanceViewApi,
   getCurrentFaceAttendanceViewResponse,
 } from '../redux/faceAttendanceSlice';
+import {
+  formatFaceAttendanceLocation,
+  getFaceAttendanceLocationPayload,
+  getLatestFaceAttendanceLocationPayload,
+} from '../utils/locationPayload';
+import {getFaceProfileImageUrl} from '../utils/mediaUrl';
 
 const getFaceData = (response) => response?.data?.data || {};
 
@@ -35,18 +41,27 @@ function DetailRow({label, value}) {
   );
 }
 
-function FaceProfileView({navigate}) {
+function FaceProfileView({navigate, routeParams}) {
   const [profileResponse, setProfileResponse] = useState(
     getCurrentFaceAttendanceViewResponse(),
   );
   const [loading, setLoading] = useState(!getCurrentFaceAttendanceViewResponse());
   const [statusText, setStatusText] = useState('Loading face profile...');
+  const [locationDetails, setLocationDetails] = useState(
+    routeParams?.lastScanLocation || getLatestFaceAttendanceLocationPayload(),
+  );
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       setStatusText('Fetching face profile...');
-      const response = await faceAttendanceViewApi({action: 'login'});
+      const locationPayload = await getFaceAttendanceLocationPayload();
+      setLocationDetails(locationPayload);
+      const response = await faceAttendanceViewApi({
+        action: 'login',
+        ...locationPayload,
+      });
       setProfileResponse(response);
       setStatusText(response?.data?.message || 'Face profile fetched successfully.');
     } catch (error) {
@@ -64,7 +79,11 @@ function FaceProfileView({navigate}) {
   const data = getFaceData(profileResponse);
   const employee = data.employee || {};
   const profile = data.face_profile || {};
-  const imageUrl = profile.face_image_path;
+  const imageUrl = getFaceProfileImageUrl(profile);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [imageUrl]);
 
   return (
     <View style={styles.screen}>
@@ -92,13 +111,37 @@ function FaceProfileView({navigate}) {
         <Text style={styles.statusText}>{statusText}</Text>
 
         <View style={styles.imageCard}>
-          {imageUrl ? (
-            <Image source={{uri: imageUrl}} style={styles.faceImage} resizeMode="cover" />
+          {imageUrl && !imageLoadFailed ? (
+            <Image
+              onError={() => setImageLoadFailed(true)}
+              source={{uri: imageUrl}}
+              style={styles.faceImage}
+              resizeMode="cover"
+            />
           ) : (
             <View style={styles.imageFallback}>
               <Text style={styles.imageFallbackText}>No image</Text>
             </View>
           )}
+        </View>
+
+        <View style={styles.locationCard}>
+          <Text style={styles.locationTitle}>LOCATION DETAILS</Text>
+          <DetailRow
+            label="Location Text"
+            value={
+              locationDetails?.addressText ||
+              formatFaceAttendanceLocation(locationDetails)
+            }
+          />
+          <DetailRow
+            label="Accuracy"
+            value={
+              locationDetails?.accuracy
+                ? `${locationDetails.accuracy}m`
+                : ''
+            }
+          />
         </View>
 
         <View style={styles.detailsCard}>
@@ -236,6 +279,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 12,
     padding: 12,
+  },
+  locationCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#d2e1f4',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 12,
+  },
+  locationTitle: {
+    color: '#2664b4',
+    fontSize: 10,
+    fontWeight: '900',
+    marginBottom: 4,
   },
   detailRow: {
     borderTopColor: '#eef2f6',

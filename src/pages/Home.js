@@ -22,6 +22,10 @@ import {
   getCurrentFaceAttendanceRegisterResponse,
 } from '../redux/faceAttendanceSlice';
 import { getCurrentAuthSession } from '../redux/loginSlice';
+import {
+  formatFaceAttendanceLocation,
+  getFaceAttendanceLocationPayload,
+} from '../utils/locationPayload';
 
 const homeIcon = require('../../assets/images/home3.png');
 const scanIcon = require('../../assets/images/scan.png');
@@ -137,6 +141,10 @@ function Home({ navigate, routeParams }) {
   );
   const [error, setError] = useState('');
   const [faceStatusError, setFaceStatusError] = useState('');
+  const [currentLocation, setCurrentLocation] = useState(
+    routeParams?.lastScanLocation || null,
+  );
+  const [locationStatus, setLocationStatus] = useState('Fetching current location...');
   const month = getCurrentMonth();
 
   const loadDashboard = useCallback(async () => {
@@ -192,6 +200,35 @@ function Home({ navigate, routeParams }) {
     routeParams?.refreshFaceAttendance,
   ]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCurrentLocation = async () => {
+      try {
+        setLocationStatus('Fetching current location...');
+        const locationPayload = await getFaceAttendanceLocationPayload();
+        if (!isMounted) {
+          return;
+        }
+        setCurrentLocation(locationPayload);
+        setLocationStatus('');
+      } catch (locationError) {
+        console.log('Home Current Location Error:', locationError);
+        if (!isMounted) {
+          return;
+        }
+        setCurrentLocation(null);
+        setLocationStatus(locationError.message || 'Unable to read current location.');
+      }
+    };
+
+    loadCurrentLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [routeParams?.refreshFaceAttendance]);
+
   const dashboardData = dashboardResponse?.data?.data || {};
   const dashboardEmployee = dashboardData.employee || {};
   const sessionUser = session?.user || {};
@@ -206,12 +243,9 @@ function Home({ navigate, routeParams }) {
     employee.emp_username ||
     employee.admin_username ||
     'User';
-  const locationName =
-    employee.location ||
-    session?.company?.comp_city ||
-    session?.company?.comp_state ||
-    session?.company?.comp_country ||
-    'Location not available';
+  const locationName = currentLocation
+    ? formatFaceAttendanceLocation(currentLocation)
+    : locationStatus;
 
   const today = formatDisplayDate(dashboardData.today);
   const monthlyAttendance = attendanceResponse?.data?.data || {};
@@ -286,6 +320,11 @@ function Home({ navigate, routeParams }) {
           <Text style={styles.location} numberOfLines={1}>
             {locationName}
           </Text>
+          {!!currentLocation?.accuracy && (
+            <Text style={styles.locationMeta} numberOfLines={1}>
+              Accuracy {currentLocation.accuracy}m
+            </Text>
+          )}
         </View>
 
         {!!error && (
@@ -333,7 +372,11 @@ function Home({ navigate, routeParams }) {
                       styles.faceProfileButton,
                       pressed && styles.actionButtonPressed,
                     ]}
-                    onPress={() => navigate('faceProfileView')}
+                    onPress={() =>
+                      navigate('faceProfileView', {
+                        lastScanLocation: currentLocation,
+                      })
+                    }
                   >
                     <Text style={styles.faceProfileButtonText}>View Face</Text>
                   </Pressable>
@@ -519,6 +562,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     marginTop: 4,
+  },
+  locationMeta: {
+    color: '#8A99AA',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 3,
   },
 
   // State / Error

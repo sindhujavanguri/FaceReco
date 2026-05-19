@@ -82,15 +82,26 @@ const createFullResponse = ({config, data, response, url}) => ({
 export const getDeviceId = () => `${Platform.OS}-face-attendance`;
 
 export const faceAttendanceRegisterApi = async ({
+  accuracy,
+  action = 'login',
+  addressText,
   faceEmbedding,
   faceImage,
+  latitude,
+  longitude,
   modelName = FACE_MODEL_NAME,
   deviceId = getDeviceId(),
   token = getCurrentAuthToken(),
 }) => {
   const formData = new FormData();
   formData.append('face_image', faceImage);
+  appendIfValue(formData, 'selfie', faceImage);
+  appendIfValue(formData, 'action', action);
   formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
+  appendIfValue(formData, 'latitude', latitude);
+  appendIfValue(formData, 'longitude', longitude);
+  appendIfValue(formData, 'accuracy', accuracy);
+  appendIfValue(formData, 'address_text', addressText);
   formData.append('model_name', modelName);
   formData.append('device_id', deviceId);
 
@@ -105,7 +116,18 @@ export const faceAttendanceRegisterApi = async ({
   const fullResponse = createFullResponse({
     config: {
       ...config,
-      body: {device_id: deviceId, face_embedding: faceEmbedding, face_image: faceImage, model_name: modelName},
+      body: {
+        accuracy,
+        action,
+        address_text: addressText,
+        device_id: deviceId,
+        face_embedding: faceEmbedding,
+        face_image: faceImage,
+        latitude,
+        longitude,
+        model_name: modelName,
+        selfie: faceImage,
+      },
     },
     data,
     response,
@@ -240,7 +262,10 @@ export const faceAttendanceViewApi = async ({
 };
 
 export const faceAttendancePunchApi = async ({
+  accuracy,
   action,
+  addressText,
+  deviceId = getDeviceId(),
   faceEmbedding,
   latitude,
   longitude,
@@ -254,6 +279,9 @@ export const faceAttendancePunchApi = async ({
   formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
   appendIfValue(formData, 'latitude', latitude);
   appendIfValue(formData, 'longitude', longitude);
+  appendIfValue(formData, 'accuracy', accuracy);
+  appendIfValue(formData, 'address_text', addressText);
+  appendIfValue(formData, 'device_id', deviceId);
 
   const config = {
     method: 'POST',
@@ -266,7 +294,16 @@ export const faceAttendancePunchApi = async ({
   const fullResponse = createFullResponse({
     config: {
       ...config,
-      body: {action: normalizedAction, face_embedding: faceEmbedding, latitude, longitude, selfie},
+      body: {
+        accuracy,
+        action: normalizedAction,
+        address_text: addressText,
+        device_id: deviceId,
+        face_embedding: faceEmbedding,
+        latitude,
+        longitude,
+        selfie,
+      },
     },
     data,
     response,

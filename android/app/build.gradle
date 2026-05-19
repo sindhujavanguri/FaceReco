@@ -86,11 +86,7 @@ android {
         versionName "1.0"
 
         ndk {
-<<<<<<< HEAD
-            abiFilters "arm64-v8a", "x86_64"
-=======
             abiFilters "armeabi-v7a", "arm64-v8a", "x86_64"
->>>>>>> c9372791a8394c1e96d9286fe682a3aaa1cb4f07
         }
 
     }

@@ -28,7 +28,7 @@ const employeeRouteByKey = {
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
   view_expenses: 'expenses',
-  work_reports: 'workReports',
+  work_reports: 'workLogOptions',
 };
 
 const adminRouteByKey = {
@@ -46,7 +46,7 @@ const adminRouteByKey = {
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
   view_expenses: 'expenses',
-  work_reports: 'workReports',
+  work_reports: 'workLogOptions',
 };
 
 const adminMenu = [
