@@ -44,30 +44,53 @@ const readPositionWithOptions = (options) =>
     });
   });
 
-const readCurrentPosition = async () => {
+const withTimeout = (promise, timeout, timeoutMessage) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(timeoutMessage)), timeout);
+    }),
+  ]);
+
+const readCurrentPosition = async ({
+  highAccuracy = true,
+  highAccuracyTimeout = 8000,
+  fallbackTimeout = 12000,
+  maximumAge = 60000,
+} = {}) => {
+  if (!highAccuracy) {
+    return readPositionWithOptions({
+      enableHighAccuracy: false,
+      maximumAge,
+      timeout: fallbackTimeout,
+    });
+  }
+
   try {
     return await readPositionWithOptions({
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: 8000,
+      timeout: highAccuracyTimeout,
     });
   } catch (highAccuracyError) {
     console.log('Face Attendance High Accuracy Location Error:', highAccuracyError);
     return readPositionWithOptions({
       enableHighAccuracy: false,
-      maximumAge: 60000,
-      timeout: 12000,
+      maximumAge,
+      timeout: fallbackTimeout,
     });
   }
 };
 
-const readLocationText = async ({latitude, longitude}) => {
+const readLocationText = async ({latitude, longitude, timeout = 3500}) => {
   try {
     const query = `latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(
       longitude,
     )}&localityLanguage=en`;
-    const response = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?${query}`,
+    const response = await withTimeout(
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?${query}`),
+      timeout,
+      'Reverse geocode timed out.',
     );
     const data = await response.json();
     const locationParts = [
@@ -86,22 +109,39 @@ const readLocationText = async ({latitude, longitude}) => {
   }
 };
 
-export const getFaceAttendanceLocationPayload = async () => {
+export const getFaceAttendanceLocationPayload = async ({
+  highAccuracy = true,
+  highAccuracyTimeout = 8000,
+  fallbackTimeout = 12000,
+  maximumAge = 60000,
+  includeAddress = true,
+  addressTimeout = 3500,
+  fallbackToCoordinates = true,
+} = {}) => {
   const hasPermission = await requestAndroidLocationPermission();
   if (!hasPermission) {
     throw new Error('Location permission denied. Please allow location access and try again.');
   }
 
-  const position = await readCurrentPosition();
+  const position = await readCurrentPosition({
+    highAccuracy,
+    highAccuracyTimeout,
+    fallbackTimeout,
+    maximumAge,
+  });
   const {accuracy, latitude, longitude} = position?.coords || {};
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new Error('Unable to read current location. Please enable GPS and try again.');
   }
 
-  const addressText =
-    (await readLocationText({latitude, longitude})) ||
-    `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  const coordinateText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  const addressText = includeAddress
+    ? (await readLocationText({latitude, longitude, timeout: addressTimeout})) ||
+      (fallbackToCoordinates ? coordinateText : '')
+    : fallbackToCoordinates
+      ? coordinateText
+      : '';
 
   const locationPayload = {
     accuracy: Number.isFinite(accuracy) ? Math.round(accuracy) : '',
