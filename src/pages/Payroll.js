@@ -88,11 +88,12 @@ function Payroll() {
       const response = await employeeDownloadPayslipApi({ month });
       const filePath = response?.data?.filePath;
       setDownloadMessage(
-        filePath
-          ? `Payslip PDF downloaded: ${filePath}`
-          : `Payslip PDF downloaded for ${month}.`
+        response?.data?.visibleInDownloads || filePath
+          ? 'Payslip downloaded successfully.'
+          : `Payslip downloaded successfully for ${month}.`
       );
     } catch (payrollError) {
+      console.log('Download Payslip Screen Error:', payrollError?.response || payrollError);
       setDownloadMessage(payrollError.message || 'Unable to download payslip.');
     } finally {
       setDownloadLoading(false);

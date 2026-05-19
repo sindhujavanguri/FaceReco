@@ -89,6 +89,139 @@ const parseDownloadedError = async (path) => {
   }
 };
 
+const readDownloadedText = async (path) => {
+  try {
+    return await RNBlobUtil.fs.readFile(path, 'utf8');
+  } catch (error) {
+    return '';
+  }
+};
+
+const getDownloadedFileProbe = async (path) => {
+  try {
+    const [exists, stat, base64Data] = await Promise.all([
+      RNBlobUtil.fs.exists(path),
+      RNBlobUtil.fs.stat(path),
+      RNBlobUtil.fs.readFile(path, 'base64'),
+    ]);
+
+    return {
+      exists,
+      firstBytesBase64: base64Data?.slice(0, 12) || '',
+      isPdf: base64Data?.startsWith('JVBER') || false,
+      size: Number(stat?.size || 0),
+    };
+  } catch (error) {
+    return {
+      error: error?.message || String(error),
+      exists: false,
+      firstBytesBase64: '',
+      isPdf: false,
+      size: 0,
+    };
+  }
+};
+
+const getPayslipFileName = (month) =>
+  `payslip-${String(month || 'salary').replace(/[\\/:*?"<>|]/g, '_')}.pdf`;
+
+const publishPayslipToDownloads = async ({ fileName, filePath }) => {
+  if (Platform.OS !== 'android') {
+    return {
+      publicPath: filePath,
+      publicUri: filePath,
+      visibleInDownloads: false,
+    };
+  }
+
+  try {
+    const publicUri = await RNBlobUtil.MediaCollection.copyToMediaStore(
+      {
+        mimeType: 'application/pdf',
+        name: fileName,
+        parentFolder: '',
+      },
+      'Download',
+      filePath
+    );
+
+    console.log('Download Payslip Published To Downloads:', {
+      fileName,
+      publicUri,
+    });
+
+    return {
+      publicPath: 'Downloads',
+      publicUri,
+      visibleInDownloads: true,
+    };
+  } catch (error) {
+    console.log('Download Payslip Publish Error:', {
+      fileName,
+      filePath,
+      message: error?.message || String(error),
+      stack: error?.stack,
+    });
+
+    return {
+      publicPath: filePath,
+      publicUri: filePath,
+      publishError: error?.message || String(error),
+      visibleInDownloads: false,
+    };
+  }
+};
+
+const showPayslipDownloadNotification = async ({ fileName, filePath }) => {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  try {
+    await RNBlobUtil.android.addCompleteDownload({
+      description: 'Employee payslip PDF downloaded',
+      mime: 'application/pdf',
+      path: filePath,
+      showNotification: true,
+      title: fileName,
+    });
+
+    console.log('Download Payslip Notification Added:', {
+      fileName,
+      filePath,
+    });
+
+    return true;
+  } catch (error) {
+    console.log('Download Payslip Notification Error:', {
+      fileName,
+      filePath,
+      message: error?.message || String(error),
+      stack: error?.stack,
+    });
+
+    return false;
+  }
+};
+
+const deleteTempPayslipFile = async (filePath) => {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  try {
+    await RNBlobUtil.fs.unlink(filePath);
+    console.log('Download Payslip Temp File Deleted:', filePath);
+    return true;
+  } catch (error) {
+    console.log('Download Payslip Temp Delete Error:', {
+      filePath,
+      message: error?.message || String(error),
+    });
+    return false;
+  }
+};
+
 export const getCurrentPayrollListResponse = () => latestPayrollListResponse;
 export const getCurrentPayrollDetailsResponse = () => latestPayrollDetailsResponse;
 export const getCurrentDownloadPayslipResponse = () => latestDownloadPayslipResponse;
@@ -148,43 +281,76 @@ export const employeePayrollDetailsApi = async ({ month, token } = {}) => {
 export const employeeDownloadPayslipApi = async ({ month, token } = {}) => {
   const url = `${DOWNLOAD_PAYSLIP_API_URL}?month=${encodeURIComponent(month || '')}`;
   const headers = buildAuthHeaders(token, 'application/pdf, application/json');
-  const fileName = `payslip-${month || 'salary'}.pdf`;
-  const downloadDir =
+  const fileName = getPayslipFileName(month);
+  const tempDir =
     Platform.OS === 'android'
-      ? RNBlobUtil.fs.dirs.DownloadDir
+      ? RNBlobUtil.fs.dirs.CacheDir
       : RNBlobUtil.fs.dirs.DocumentDir;
-  const filePath = `${downloadDir}/${fileName}`;
-  const config =
-    Platform.OS === 'android'
-      ? {
-          addAndroidDownloads: {
-            description: 'Employee payslip PDF',
-            mediaScannable: true,
-            mime: 'application/pdf',
-            notification: true,
-            path: filePath,
-            title: fileName,
-            useDownloadManager: true,
-          },
-          fileCache: true,
-          path: filePath,
-        }
-      : {
-          fileCache: true,
-          path: filePath,
-        };
+  const filePath = `${tempDir}/${fileName}`;
+  const config = {
+    appendExt: 'pdf',
+    fileCache: true,
+    path: filePath,
+  };
 
-  const response = await RNBlobUtil.config(config).fetch('GET', url, headers);
+  console.log('Download Payslip Request:', {
+    headers,
+    method: 'GET',
+    month,
+    saveConfig: config,
+    url,
+  });
+
+  let response;
+
+  try {
+    response = await RNBlobUtil.config(config).fetch('GET', url, headers);
+  } catch (error) {
+    console.log('Download Payslip Fetch Error:', {
+      message: error?.message,
+      month,
+      response: error?.response,
+      stack: error?.stack,
+      url,
+    });
+    throw error;
+  }
+
   const responseInfo = response.info();
   const responseHeaders = normalizeBlobHeaders(responseInfo.headers);
   const contentType = responseHeaders['content-type'] || '';
+  const contentDisposition = responseHeaders['content-disposition'] || '';
   const status = Number(responseInfo.status || 0);
-  const isJsonResponse = contentType.includes('application/json');
+  const fileProbe = await getDownloadedFileProbe(response.path());
+  const headerLooksLikePdf =
+    contentType.includes('application/pdf') || contentDisposition.includes('.pdf');
+  const isPdfResponse = fileProbe.isPdf || headerLooksLikePdf;
+  const isJsonResponse = contentType.includes('application/json') && !isPdfResponse;
+  const errorText = isJsonResponse || !isPdfResponse ? await readDownloadedText(response.path()) : '';
   const errorData = isJsonResponse ? await parseDownloadedError(response.path()) : null;
+  const publishResult = isPdfResponse
+    ? await publishPayslipToDownloads({ fileName, filePath: response.path() })
+    : null;
+  const notificationShown = publishResult?.visibleInDownloads
+    ? await showPayslipDownloadNotification({
+        fileName,
+        filePath: publishResult.publicUri,
+      })
+    : false;
+  const tempDeleted = publishResult?.visibleInDownloads
+    ? await deleteTempPayslipFile(response.path())
+    : false;
   const data = {
     fileName,
-    filePath: response.path(),
+    filePath: publishResult?.publicPath || response.path(),
+    isPdf: isPdfResponse,
     month,
+    notificationShown,
+    publicUri: publishResult?.publicUri || response.path(),
+    size: fileProbe.size,
+    tempDeleted,
+    tempFilePath: response.path(),
+    visibleInDownloads: publishResult?.visibleInDownloads || false,
   };
   const fullResponse = {
     config: {
@@ -194,12 +360,17 @@ export const employeeDownloadPayslipApi = async ({ month, token } = {}) => {
     },
     data: errorData || data,
     headers: responseInfo.headers || {},
-    ok: status >= 200 && status < 300,
+    ok: (status >= 200 && status < 300 && isPdfResponse) || (status === 0 && isPdfResponse),
     status,
     statusText: '',
     url,
   };
 
+  console.log('Download Payslip Raw Response Info:', responseInfo);
+  console.log('Download Payslip File Probe:', fileProbe);
+  if (errorText) {
+    console.log('Download Payslip Non-PDF Body:', errorText);
+  }
   console.log('Download Payslip Full Response:', fullResponse);
 
   throwIfPayrollError({
@@ -211,6 +382,12 @@ export const employeeDownloadPayslipApi = async ({ month, token } = {}) => {
 
   if (isJsonResponse) {
     const error = new Error(errorData?.message || 'Payslip download failed.');
+    error.response = fullResponse;
+    throw error;
+  }
+
+  if (!isPdfResponse) {
+    const error = new Error('Payslip API did not return a PDF file.');
     error.response = fullResponse;
     throw error;
   }

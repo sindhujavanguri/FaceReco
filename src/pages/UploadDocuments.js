@@ -47,6 +47,8 @@ export default function UploadDocuments({ embedded = false, navigate, onUploaded
       }
 
       setSelectedFile({
+        fileCopyUri: file.fileCopyUri,
+        localCopyUri: file.localCopyUri,
         name: file.name || 'document',
         size: file.size || 0,
         type: fileType,
@@ -93,6 +95,7 @@ export default function UploadDocuments({ embedded = false, navigate, onUploaded
       setMessage(response?.data?.message || 'Document uploaded successfully.');
       onUploaded?.(response);
     } catch (uploadError) {
+      console.log('Upload Document Screen Error:', uploadError?.response || uploadError);
       setError(uploadError.message || 'Unable to upload document.');
     } finally {
       setLoading(false);

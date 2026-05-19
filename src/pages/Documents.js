@@ -63,9 +63,10 @@ export default function Documents({ navigate }) {
         downloadUrl: document.download_url,
         fileName: document.file_name,
       });
-      setMessage(`Document downloaded: ${response?.data?.filePath || document.file_name}`);
+      setMessage('Document downloaded successfully.');
     } catch (downloadError) {
-      setMessage('Unable to download document.');
+      console.log('Download Document Screen Error:', downloadError?.response || downloadError);
+      setMessage(downloadError.message || 'Unable to download document.');
     } finally {
       setDownloadId(null);
     }
