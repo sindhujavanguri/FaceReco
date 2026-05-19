@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -14,7 +13,6 @@ import {
 } from '../redux/faceAttendanceSlice';
 import {
   formatFaceAttendanceLocation,
-  getFaceAttendanceLocationPayload,
   getLatestFaceAttendanceLocationPayload,
 } from '../utils/locationPayload';
 import {getFaceProfileImageUrl} from '../utils/mediaUrl';
@@ -43,32 +41,26 @@ function DetailRow({label, value}) {
 
 function FaceProfileView({navigate, routeParams}) {
   const [profileResponse, setProfileResponse] = useState(
-    getCurrentFaceAttendanceViewResponse(),
+    routeParams?.profileResponse || getCurrentFaceAttendanceViewResponse(),
   );
-  const [loading, setLoading] = useState(!getCurrentFaceAttendanceViewResponse());
-  const [statusText, setStatusText] = useState('Loading face profile...');
-  const [locationDetails, setLocationDetails] = useState(
+  const [statusText, setStatusText] = useState(
+    getCurrentFaceAttendanceViewResponse()
+      ? 'Face profile ready.'
+      : 'Face profile will update shortly.',
+  );
+  const [locationDetails] = useState(
     routeParams?.lastScanLocation || getLatestFaceAttendanceLocationPayload(),
   );
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const loadProfile = useCallback(async () => {
     try {
-      setLoading(true);
-      setStatusText('Fetching face profile...');
-      const locationPayload = await getFaceAttendanceLocationPayload();
-      setLocationDetails(locationPayload);
-      const response = await faceAttendanceViewApi({
-        action: 'login',
-        ...locationPayload,
-      });
+      const response = await faceAttendanceViewApi({action: 'login'});
       setProfileResponse(response);
       setStatusText(response?.data?.message || 'Face profile fetched successfully.');
     } catch (error) {
       console.log('Face Profile View Error:', error?.response || error);
       setStatusText(error.message || 'Unable to fetch face profile.');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -89,24 +81,21 @@ function FaceProfileView({navigate, routeParams}) {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerCard}>
-          <View>
+          <View style={styles.headerTextBlock}>
             <Text style={styles.eyebrow}>FACE PROFILE</Text>
-            <Text style={styles.title}>{formatValue(employee.emp_name, 'Employee')}</Text>
-            <Text style={styles.subtitle}>{formatValue(employee.emp_code)}</Text>
-          </View>
-          <View style={[styles.statusPill, data.face_registered && styles.statusPillActive]}>
-            <Text style={[styles.statusPillText, data.face_registered && styles.statusPillTextActive]}>
-              {data.face_registered ? 'REGISTERED' : 'NOT FOUND'}
+            <Text style={styles.title} numberOfLines={2}>
+              {formatValue(employee.emp_name, 'Employee')}
             </Text>
+            <View style={styles.codeRow}>
+              <Text style={styles.subtitle}>{formatValue(employee.emp_code)}</Text>
+              <View style={[styles.statusPill, data.face_registered && styles.statusPillActive]}>
+                <Text style={[styles.statusPillText, data.face_registered && styles.statusPillTextActive]}>
+                  {data.face_registered ? 'REGISTERED' : 'NOT FOUND'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
-
-        {loading && (
-          <View style={styles.stateBox}>
-            <ActivityIndicator color="#2664b4" />
-            <Text style={styles.stateText}>Loading face profile...</Text>
-          </View>
-        )}
 
         <Text style={styles.statusText}>{statusText}</Text>
 
@@ -184,12 +173,12 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   headerCard: {
-    alignItems: 'center',
     backgroundColor: '#113a70',
     borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     padding: 16,
+  },
+  headerTextBlock: {
+    minWidth: 0,
   },
   eyebrow: {
     color: '#9fc2ec',
@@ -199,23 +188,29 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
+    lineHeight: 22,
     marginTop: 5,
+  },
+  codeRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
   },
   subtitle: {
     color: '#d8e7fa',
     fontSize: 12,
     fontWeight: '800',
-    marginTop: 3,
   },
   statusPill: {
     backgroundColor: '#fff8e8',
     borderColor: '#fad991',
     borderRadius: 7,
     borderWidth: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
   statusPillActive: {
     backgroundColor: '#ecfdf3',
@@ -223,26 +218,11 @@ const styles = StyleSheet.create({
   },
   statusPillText: {
     color: '#b76e00',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '900',
   },
   statusPillTextActive: {
     color: '#027a48',
-  },
-  stateBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d2e1f4',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    padding: 14,
-  },
-  stateText: {
-    color: '#667085',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 8,
   },
   statusText: {
     color: '#5b7289',

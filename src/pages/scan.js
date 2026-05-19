@@ -1,8 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
   Animated,
   NativeModules,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,7 +19,6 @@ import {
   faceAttendanceViewApi,
 } from '../redux/faceAttendanceSlice';
 import {
-  FACE_MODEL_NAME,
   compareFaceEmbeddings,
   createImageFormFile,
   faceDetectionOptions,
@@ -94,6 +92,9 @@ function getDetectionStatus() {
 
 function Scan({navigate, routeParams}) {
   const cameraRef = useRef(null);
+  const autoScanTimerRef = useRef(null);
+  const hasAutoScannedRef = useRef(false);
+  const scanStartedAtRef = useRef(Date.now());
   const device = useCameraDevice('front');
   const photoOutput = usePhotoOutput();
   const {hasPermission, requestPermission} = useCameraPermission();
@@ -107,7 +108,7 @@ function Scan({navigate, routeParams}) {
   );
   const [detectionState] = useState(getDetectionStatus);
 
-  const openFrontCamera = async () => {
+  const openFrontCamera = useCallback(async () => {
     if (!device) {
       setPermissionState('No front camera found on this device.');
       return false;
@@ -122,11 +123,11 @@ function Scan({navigate, routeParams}) {
       }
     }
     setCameraEnabled(true);
-    setPermissionState('Live camera active.');
+    setPermissionState('Camera active. Scanning face automatically...');
     return true;
-  };
+  }, [device, hasPermission, requestPermission]);
 
-  const captureAndPunch = async () => {
+  const captureAndPunch = useCallback(async () => {
     if (!cameraEnabled || !hasPermission || !device) {
       await openFrontCamera();
       return;
@@ -153,7 +154,13 @@ function Scan({navigate, routeParams}) {
 
       const faceCapture = validateSingleFaceCapture(faces);
       if (faceCapture.error) {
-        setPermissionState(faceCapture.error);
+        const elapsedMs = Date.now() - scanStartedAtRef.current;
+        if (elapsedMs < 10000) {
+          hasAutoScannedRef.current = false;
+          setPermissionState('Looking for the registered face...');
+        } else {
+          setPermissionState(faceCapture.error);
+        }
         return;
       }
 
@@ -165,18 +172,11 @@ function Scan({navigate, routeParams}) {
         ...locationPayload,
       });
       const profile = profileResponse?.data?.data?.face_profile || {};
-      if (profile.model_name && profile.model_name !== FACE_MODEL_NAME) {
-        setPermissionState('Face profile needs re-registration for accurate verification.');
-        return;
-      }
-
       const registeredEmbedding = getProfileFaceEmbedding(profile);
       const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
 
       if (!faceMatch.isMatch) {
-        setPermissionState(
-          `${faceMatch.reason} Similarity ${faceMatch.similarity.toFixed(3)}.`,
-        );
+        setPermissionState('Wrong face detected. Please scan the registered employee face.');
         return;
       }
 
@@ -205,9 +205,44 @@ function Scan({navigate, routeParams}) {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    action,
+    actionLabel,
+    cameraEnabled,
+    device,
+    hasPermission,
+    navigate,
+    openFrontCamera,
+    photoOutput,
+  ]);
 
   const showCamera = cameraEnabled && hasPermission && device;
+
+  useEffect(() => {
+    hasAutoScannedRef.current = false;
+    scanStartedAtRef.current = Date.now();
+  }, [action]);
+
+  useEffect(() => {
+    openFrontCamera();
+  }, [openFrontCamera]);
+
+  useEffect(() => {
+    if (!showCamera || isSubmitting || hasAutoScannedRef.current) {
+      return undefined;
+    }
+
+    hasAutoScannedRef.current = true;
+    autoScanTimerRef.current = setTimeout(() => {
+      captureAndPunch();
+    }, 900);
+
+    return () => {
+      if (autoScanTimerRef.current) {
+        clearTimeout(autoScanTimerRef.current);
+      }
+    };
+  }, [captureAndPunch, isSubmitting, showCamera]);
 
   return (
     <View style={styles.container}>
@@ -271,24 +306,11 @@ function Scan({navigate, routeParams}) {
       </View>
 
       <View style={styles.footer}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${actionLabel} face scan`}
-          disabled={isSubmitting}
-          style={({pressed}) => [
-            styles.primaryButton,
-            isSubmitting && styles.primaryButtonDisabled,
-            pressed && styles.primaryButtonPressed,
-          ]}
-          onPress={captureAndPunch}>
-          <Text style={styles.primaryButtonText}>
-            {isSubmitting
-              ? `${actionLabel}...`
-              : showCamera
-                ? `Scan Face for ${actionLabel}`
-                : 'Enable Camera'}
+        <View style={styles.autoScanBox}>
+          <Text style={styles.autoScanText}>
+            {isSubmitting ? `${actionLabel} in progress...` : 'Scanning automatically'}
           </Text>
-        </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -466,6 +488,20 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     paddingHorizontal: 18,
     paddingTop: 14,
+  },
+  autoScanBox: {
+    alignItems: 'center',
+    backgroundColor: '#e9f2fb',
+    borderColor: '#cfe0ef',
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  autoScanText: {
+    color: '#0b6bcb',
+    fontSize: 14,
+    fontWeight: '900',
   },
   primaryButton: {
     alignItems: 'center',

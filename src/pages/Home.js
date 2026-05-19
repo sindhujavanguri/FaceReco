@@ -25,6 +25,7 @@ import { getCurrentAuthSession } from '../redux/loginSlice';
 import {
   formatFaceAttendanceLocation,
   getFaceAttendanceLocationPayload,
+  getLatestFaceAttendanceLocationPayload,
 } from '../utils/locationPayload';
 
 const homeIcon = require('../../assets/images/home3.png');
@@ -217,8 +218,9 @@ function Home({ navigate, routeParams }) {
         if (!isMounted) {
           return;
         }
-        setCurrentLocation(null);
-        setLocationStatus(locationError.message || 'Unable to read current location.');
+        const latestLocation = getLatestFaceAttendanceLocationPayload();
+        setCurrentLocation(latestLocation);
+        setLocationStatus(latestLocation ? '' : 'Location will update during attendance scan.');
       }
     };
 
@@ -259,8 +261,10 @@ function Home({ navigate, routeParams }) {
     routeFaceRegisteredFlag ||
     apiFaceRegisteredFlag === true ||
     registerResponseFlag === true;
+  const routeLoginCompleted = routeParams?.faceActionCompleted === 'login';
+  const routeLogoutCompleted = routeParams?.faceActionCompleted === 'logout';
   const loggedInFlag = readLoggedInFlag(todayFaceStatus);
-  const isFaceLoggedIn = Boolean(loggedInFlag);
+  const isFaceLoggedIn = routeLoginCompleted || Boolean(loggedInFlag);
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
   const currentScanLabel = currentScanMode === 'logout' ? 'Logout' : 'Login';
@@ -278,12 +282,12 @@ function Home({ navigate, routeParams }) {
       return;
     }
 
-    if (routeParams?.faceActionCompleted === 'logout') {
+    if (routeLogoutCompleted) {
       setAttendanceStep('done');
       return;
     }
 
-    if (routeParams?.faceActionCompleted === 'login' || isFaceLoggedIn) {
+    if (routeLoginCompleted || isFaceLoggedIn) {
       setAttendanceStep('logout');
       return;
     }
@@ -298,7 +302,8 @@ function Home({ navigate, routeParams }) {
     faceRegisteredFlag,
     isFaceLoggedIn,
     isEmployeeAccess,
-    routeParams?.faceActionCompleted,
+    routeLoginCompleted,
+    routeLogoutCompleted,
     routeParams?.faceRegistered,
     routeParams?.refreshFaceAttendance,
   ]);

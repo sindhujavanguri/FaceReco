@@ -26,14 +26,31 @@ const requestAndroidLocationPermission = async () => {
   return result === PermissionsAndroid.RESULTS.GRANTED;
 };
 
-const readCurrentPosition = () =>
+const readPositionWithOptions = (options) =>
   new Promise((resolve, reject) => {
     Geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 15000,
+      maximumAge: 30000,
+      timeout: 10000,
+      ...options,
     });
   });
+
+const readCurrentPosition = async () => {
+  try {
+    return await readPositionWithOptions({
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 8000,
+    });
+  } catch (highAccuracyError) {
+    console.log('Face Attendance High Accuracy Location Error:', highAccuracyError);
+    return readPositionWithOptions({
+      enableHighAccuracy: false,
+      maximumAge: 60000,
+      timeout: 12000,
+    });
+  }
+};
 
 const readLocationText = async ({latitude, longitude}) => {
   try {
@@ -73,10 +90,9 @@ export const getFaceAttendanceLocationPayload = async () => {
     throw new Error('Unable to read current location. Please enable GPS and try again.');
   }
 
-  const addressText = await readLocationText({latitude, longitude});
-  if (!addressText) {
-    throw new Error('Unable to detect location name. Please check internet and GPS.');
-  }
+  const addressText =
+    (await readLocationText({latitude, longitude})) ||
+    `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
 
   const locationPayload = {
     accuracy: Number.isFinite(accuracy) ? Math.round(accuracy) : '',

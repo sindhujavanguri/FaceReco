@@ -28,7 +28,6 @@ import {
   parseFaceEmbeddingPayload,
   validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
-import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
 import {getFaceProfileImageUrl} from '../utils/mediaUrl';
 
 const parseEmbeddingText = (value) => {
@@ -61,7 +60,9 @@ function FaceRegisterEdit({navigate, routeParams}) {
   );
   const [capturing, setCapturing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [statusText, setStatusText] = useState('Loading face profile...');
+  const [statusText, setStatusText] = useState(
+    initialProfile.face_profile_id ? 'Face profile ready.' : 'Face profile will update shortly.',
+  );
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const imageUri = selectedImage?.uri || getFaceProfileImageUrl(profile);
@@ -73,12 +74,7 @@ function FaceRegisterEdit({navigate, routeParams}) {
 
   const loadProfile = useCallback(async () => {
     try {
-      setStatusText('Fetching current face profile...');
-      const locationPayload = await getFaceAttendanceLocationPayload();
-      const response = await faceAttendanceViewApi({
-        action: 'login',
-        ...locationPayload,
-      });
+      const response = await faceAttendanceViewApi({action: 'login'});
       const nextProfile = response?.data?.data?.face_profile || {};
       setProfile(nextProfile);
       setEmbeddingText(stringifyEmbedding(nextProfile));
