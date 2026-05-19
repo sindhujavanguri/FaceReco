@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
 const ADMIN_LOGIN_API_URL = 'https://api.apphrms.com/admin/login.php';
@@ -5,10 +6,60 @@ const ADMIN_LOGOUT_API_URL = 'https://api.apphrms.com/admin/logout.php';
 const EMPLOYEE_LOGIN_API_URL = 'https://api.apphrms.com/employee/login.php';
 const EMPLOYEE_LOGOUT_API_URL = 'https://api.apphrms.com/employee/logout.php';
 export const CLIENT_CODE = 'qa2';
+const AUTH_SESSION_STORAGE_KEY = 'faceReco.authSession';
 
 let latestAuthToken = null;
 let latestLoginMode = 'admin';
 let latestAuthSession = null;
+
+const saveAuthSession = async () => {
+  if (!latestAuthSession) {
+    return;
+  }
+
+  try {
+    await AsyncStorage.setItem(
+      AUTH_SESSION_STORAGE_KEY,
+      JSON.stringify({
+        mode: latestLoginMode,
+        session: latestAuthSession,
+        token: latestAuthToken,
+      })
+    );
+  } catch (storageError) {
+    console.log('Save Auth Session Error:', storageError);
+  }
+};
+
+export const restoreAuthSession = async () => {
+  try {
+    const savedSessionText = await AsyncStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    if (!savedSessionText) {
+      return null;
+    }
+
+    const savedSession = JSON.parse(savedSessionText);
+    latestAuthToken = savedSession?.token || null;
+    latestLoginMode = normalizeMode(savedSession?.mode);
+    latestAuthSession = savedSession?.session || null;
+    return latestAuthSession;
+  } catch (storageError) {
+    console.log('Restore Auth Session Error:', storageError);
+    return null;
+  }
+};
+
+export const clearStoredAuthSession = async () => {
+  latestAuthToken = null;
+  latestLoginMode = 'admin';
+  latestAuthSession = null;
+
+  try {
+    await AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+  } catch (storageError) {
+    console.log('Clear Auth Session Error:', storageError);
+  }
+};
 
 const getResponseHeaders = (headers) => {
   if (!headers) {
@@ -130,6 +181,7 @@ export const loginApi = async ({ email, password, mode = 'admin' }) => {
     mode: authConfig.mode,
     user: data?.data?.user || null,
   };
+  await saveAuthSession();
 
   return fullResponse;
 };
@@ -180,8 +232,7 @@ export const logoutApi = async (token = latestAuthToken, mode = latestLoginMode)
     throw error;
   }
 
-  latestAuthToken = null;
-  latestAuthSession = null;
+  await clearStoredAuthSession();
 
   return fullResponse;
 };

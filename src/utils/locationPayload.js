@@ -1,5 +1,5 @@
-import {PermissionsAndroid, Platform} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import {PermissionsAndroid, Platform} from 'react-native';
 
 let latestFaceAttendanceLocationPayload = null;
 
@@ -28,6 +28,15 @@ const requestAndroidLocationPermission = async () => {
 
 const readPositionWithOptions = (options) =>
   new Promise((resolve, reject) => {
+    if (!Geolocation?.getCurrentPosition) {
+      reject(
+        new Error(
+          'Location service is not available in this app build. Please install geolocation and rebuild the app.',
+        ),
+      );
+      return;
+    }
+
     Geolocation.getCurrentPosition(resolve, reject, {
       maximumAge: 30000,
       timeout: 10000,
