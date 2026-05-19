@@ -343,7 +343,7 @@ function Home({ navigate, routeParams }) {
 
         {/* Attendance Card */}
         <View style={styles.attendanceCard}>
-          <Text style={styles.cardEyebrow}>ATTENDANCE</Text>
+         
           <Text style={styles.cardTitle}>Today Attendance</Text>
 
           {(isEmployeeAccess || session?.mode === 'admin') && (
