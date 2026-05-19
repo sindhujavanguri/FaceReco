@@ -189,9 +189,13 @@ function Home({ navigate, routeParams }) {
   const [error, setError] = useState('');
   const [faceStatusError, setFaceStatusError] = useState('');
   const [currentLocation, setCurrentLocation] = useState(
-    routeParams?.lastScanLocation || null,
+    routeParams?.lastScanLocation || getLatestFaceAttendanceLocationPayload(),
   );
-  const [locationStatus, setLocationStatus] = useState('Fetching current location...');
+  const [locationStatus, setLocationStatus] = useState(
+    routeParams?.lastScanLocation || getLatestFaceAttendanceLocationPayload()
+      ? ''
+      : 'Fetching current location...',
+  );
   const month = getCurrentMonth();
 
   const loadDashboard = useCallback(async () => {
@@ -249,21 +253,41 @@ function Home({ navigate, routeParams }) {
 
   useEffect(() => {
     let isMounted = true;
+    const fallbackTimer = setTimeout(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      const latestLocation = getLatestFaceAttendanceLocationPayload();
+      setCurrentLocation(latestLocation);
+      setLocationStatus(latestLocation ? '' : 'Location will update during attendance scan.');
+    }, 2000);
 
     const loadCurrentLocation = async () => {
       try {
-        setLocationStatus('Fetching current location...');
-        const locationPayload = await getFaceAttendanceLocationPayload();
+        setLocationStatus((status) => status || 'Fetching current location...');
+        const locationPayload = await getFaceAttendanceLocationPayload({
+          highAccuracy: false,
+          fallbackTimeout: 900,
+          maximumAge: 300000,
+          includeAddress: true,
+          addressTimeout: 900,
+          fallbackToCoordinates: false,
+        });
         if (!isMounted) {
           return;
         }
-        setCurrentLocation(locationPayload);
-        setLocationStatus('');
+        clearTimeout(fallbackTimer);
+        setCurrentLocation(locationPayload.addressText ? locationPayload : null);
+        setLocationStatus(
+          locationPayload.addressText ? '' : 'Location will update during attendance scan.',
+        );
       } catch (locationError) {
         console.log('Home Current Location Error:', locationError);
         if (!isMounted) {
           return;
         }
+        clearTimeout(fallbackTimer);
         const latestLocation = getLatestFaceAttendanceLocationPayload();
         setCurrentLocation(latestLocation);
         setLocationStatus(latestLocation ? '' : 'Location will update during attendance scan.');
@@ -274,6 +298,7 @@ function Home({ navigate, routeParams }) {
 
     return () => {
       isMounted = false;
+      clearTimeout(fallbackTimer);
     };
   }, [routeParams?.refreshFaceAttendance]);
 
