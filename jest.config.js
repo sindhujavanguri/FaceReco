@@ -7,6 +7,8 @@ module.exports = {
       '<rootDir>/__mocks__/react-native-blob-util.js',
     '^@react-native-community/geolocation$':
       '<rootDir>/__mocks__/@react-native-community-geolocation.js',
+    '^@react-native-async-storage/async-storage$':
+      '<rootDir>/__mocks__/@react-native-async-storage-async-storage.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(react-native|@react-native|@react-native-community|@reduxjs/toolkit|redux|immer|reselect)/)',
