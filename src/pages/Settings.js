@@ -5,6 +5,7 @@ import {
   getCurrentEmployeeProfileResponse,
 } from '../redux/employeeSlice';
 import {
+  clearStoredAuthSession,
   getCurrentAuthSession,
   logoutApi,
 } from '../redux/loginSlice';
@@ -51,6 +52,7 @@ function Settings({ navigate }) {
     } catch (e) {
       console.log('Logout error:', e);
     } finally {
+      await clearStoredAuthSession();
       navigate('login');
     }
   };

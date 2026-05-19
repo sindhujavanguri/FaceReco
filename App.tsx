@@ -17,6 +17,7 @@ import {
 } from './src/redux/employeeSlice';
 import {
   getCurrentAuthSession,
+  restoreAuthSession,
 } from './src/redux/loginSlice';
 
 const HomeScreen = require('./src/pages/Home').default;
@@ -197,6 +198,7 @@ function App(): React.JSX.Element {
   const [route, setRoute] = useState<RouteName>('login');
   const [routeParams, setRouteParams] = useState<Record<string, any>>({});
   const [_routeStack, setRouteStack] = useState<RouteName[]>([]);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [headerImageFailed, setHeaderImageFailed] = useState(false);
 
   const ActiveScreen = routes[route];
@@ -228,6 +230,28 @@ function App(): React.JSX.Element {
 
   const headerInitial = getInitials(headerName);
   const headerImage = getUserImage(headerUser);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const restoreSession = async () => {
+      const restoredSession = await restoreAuthSession();
+      if (!mounted) {
+        return;
+      }
+
+      if (restoredSession) {
+        setRoute('home');
+      }
+      setIsAuthReady(true);
+    };
+
+    restoreSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     setHeaderImageFailed(false);
@@ -302,6 +326,16 @@ function App(): React.JSX.Element {
       <StatusBar barStyle="dark-content" backgroundColor="#f5f8fb" />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.appShell}>
+          {!isAuthReady ? (
+            <View style={styles.loadingScreen}>
+              <Image
+                source={mainLogo}
+                style={styles.loadingLogo}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <>
 
           {!isAuthRoute && (
             <View style={styles.headerWrap}>
@@ -377,6 +411,8 @@ function App(): React.JSX.Element {
               routeParams={routeParams}
             />
           </View>
+            </>
+          )}
 
         </View>
       </SafeAreaView>
@@ -481,6 +517,15 @@ const styles = StyleSheet.create({
   },
   authPage: {
     backgroundColor: '#eef5fb',
+  },
+  loadingScreen: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  loadingLogo: {
+    height: 70,
+    width: 210,
   },
 });
 
