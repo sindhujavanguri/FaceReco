@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Animated,
   Image,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { loginApi } from '../redux/loginSlice';
+import { loginApi, restoreAuthSession } from '../redux/loginSlice';
 
 const logo = require('../../assets/images/mainlogo.png');
 
@@ -87,6 +87,24 @@ function Login({ navigate, onSignIn }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const redirectIfSessionExists = async () => {
+      const restoredSession = await restoreAuthSession();
+      if (mounted && restoredSession) {
+        setSuccess('Session restored. Opening dashboard...');
+        onSignIn?.();
+      }
+    };
+
+    redirectIfSessionExists();
+
+    return () => {
+      mounted = false;
+    };
+  }, [onSignIn]);
 
   const handleLogin = async () => {
     try {

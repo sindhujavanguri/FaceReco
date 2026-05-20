@@ -58,6 +58,9 @@ const AdminExpenseFormScreen = require('./src/pages/AdminExpenseForm').default;
 const AddExpenseScreen = require('./src/pages/AddExpense').default;
 const EditExpenseScreen = require('./src/pages/EditExpense').default;
 const ViewExpensesScreen = require('./src/pages/ViewExpenses').default;
+const FinancialYearsScreen = require('./src/pages/FinancialYears').default;
+const SubmissionListScreen = require('./src/pages/SubmissionList').default;
+const TaxEmployeeDetailsScreen = require('./src/pages/TaxEmployeeDetails').default;
 
 const backIcon = require('./assets/images/back.png');
 const mainLogo = require('./assets/images/mainlogo.png');
@@ -100,7 +103,10 @@ type RouteName =
   | 'adminExpenseForm'
   | 'addExpense'
   | 'editExpense'
-  | 'viewExpenses';
+  | 'viewExpenses'
+  | 'taxFinancialYears'
+  | 'taxSubmissionList'
+  | 'taxEmployeeDetails';
 
 type AppPageProps = {
   navigate: (route: RouteName, params?: Record<string, any>) => void;
@@ -147,6 +153,9 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   addExpense: AddExpenseScreen,
   editExpense: EditExpenseScreen,
   viewExpenses: ViewExpensesScreen,
+  taxFinancialYears: FinancialYearsScreen,
+  taxSubmissionList: SubmissionListScreen,
+  taxEmployeeDetails: TaxEmployeeDetailsScreen,
 };
 
 const routeTitles: Record<RouteName, string> = {
@@ -188,6 +197,9 @@ const routeTitles: Record<RouteName, string> = {
   addExpense: 'Add Expense',
   editExpense: 'Edit Expense',
   viewExpenses: 'View Expenses',
+  taxFinancialYears: 'TDS',
+  taxSubmissionList: 'Tax Submissions',
+  taxEmployeeDetails: 'Tax Details',
 };
 
 const getInitials = (name: string): string => {

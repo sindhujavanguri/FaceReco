@@ -45,6 +45,15 @@ const formatDisplayDate = (dateValue) => {
   };
 };
 
+const getTodayKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthValue = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${monthValue}-${day}`;
+};
+
 const formatValue = (value, fallback = 'Not available') =>
   value === null || value === undefined || value === '' ? fallback : String(value);
 
@@ -146,6 +155,7 @@ const readTodayLoggedInFlag = (source) => {
   return loginValue !== undefined ? true : undefined;
 };
 
+<<<<<<< HEAD
 const readTodayLoggedOutFlag = (source) => {
   const logoutValue = findAttendanceValue(source, [
     'logout',
@@ -155,6 +165,85 @@ const readTodayLoggedOutFlag = (source) => {
   ]);
 
   return logoutValue !== undefined;
+=======
+const getAttendanceRecords = (monthlyAttendance = {}) =>
+  Array.isArray(monthlyAttendance.attendance)
+    ? monthlyAttendance.attendance
+    : Array.isArray(monthlyAttendance.records)
+      ? monthlyAttendance.records
+      : [];
+
+const getRecordDate = (record = {}) => {
+  const dateValue =
+    record.attendance_date ||
+    record.emp_attd_date ||
+    record.work_date ||
+    record.date ||
+    record.emp_attd_dt;
+
+  return String(dateValue || '').slice(0, 10);
+};
+
+const isValidLogoutValue = (value) => {
+  if (value === null || value === undefined) {
+    return false;
+  }
+
+  const normalized = String(value).trim();
+  return Boolean(
+    normalized &&
+      normalized !== '0000-00-00 00:00:00' &&
+      normalized !== '0000-00-00' &&
+      normalized !== '00:00:00' &&
+      normalized.toLowerCase() !== 'null',
+  );
+};
+
+const getTodayAttendanceRecord = (monthlyAttendance = {}) => {
+  const todayKey = getTodayKey();
+  return getAttendanceRecords(monthlyAttendance).find(
+    (record) => getRecordDate(record) === todayKey,
+  );
+};
+
+const getAttendanceStepFromRecord = ({
+  faceRegistered,
+  isEmployeeAccess,
+  monthlyAttendance,
+  routeAction,
+  todayFaceStatus,
+}) => {
+  if (!isEmployeeAccess) {
+    return 'login';
+  }
+
+  if (routeAction === 'logout') {
+    return 'done';
+  }
+
+  if (routeAction === 'login') {
+    return 'logout';
+  }
+
+  if (!faceRegistered) {
+    return 'register';
+  }
+
+  const todayRecord = getTodayAttendanceRecord(monthlyAttendance);
+  if (todayRecord) {
+    return isValidLogoutValue(todayRecord.logout) ? 'done' : 'logout';
+  }
+
+  const todayLoggedIn = readTodayLoggedInFlag(todayFaceStatus);
+  if (todayLoggedIn === true) {
+    return 'logout';
+  }
+  if (todayLoggedIn === false) {
+    return 'done';
+  }
+
+  return 'login';
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
 };
 
 function SummaryCard({ label, value, tone }) {
@@ -194,9 +283,7 @@ function Home({ navigate, routeParams }) {
   const [faceStatusResponse, setFaceStatusResponse] = useState(
     isEmployeeAccess ? null : getCurrentFaceAttendanceTodayStatusResponse()
   );
-  const [attendanceStep, setAttendanceStep] = useState(
-    isEmployeeAccess ? 'register' : 'login'
-  );
+  const [attendanceStep, setAttendanceStep] = useState('login');
   const [error, setError] = useState('');
   const [faceStatusError, setFaceStatusError] = useState('');
   const [currentLocation, setCurrentLocation] = useState(
@@ -343,11 +430,22 @@ function Home({ navigate, routeParams }) {
     routeFaceRegisteredFlag ||
     apiFaceRegisteredFlag === true ||
     registerResponseFlag === true;
+<<<<<<< HEAD
   const routeLoginCompleted = routeParams?.faceActionCompleted === 'login';
   const routeLogoutCompleted = routeParams?.faceActionCompleted === 'logout';
   const loggedInFlag = readTodayLoggedInFlag(todayFaceStatus);
   const isFaceLoggedOut = routeLogoutCompleted || readTodayLoggedOutFlag(todayFaceStatus);
   const isFaceLoggedIn = !isFaceLoggedOut && (routeLoginCompleted || Boolean(loggedInFlag));
+=======
+  const computedAttendanceStep = getAttendanceStepFromRecord({
+    faceRegistered: faceRegisteredFlag,
+    isEmployeeAccess,
+    monthlyAttendance,
+    routeAction: routeParams?.faceActionCompleted,
+    todayFaceStatus,
+  });
+  const isFaceLoggedIn = computedAttendanceStep === 'logout';
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
   const currentScanLabel = currentScanMode === 'logout' ? 'Logout' : 'Login';
@@ -360,6 +458,7 @@ function Home({ navigate, routeParams }) {
     : 'No pending request';
 
   useEffect(() => {
+<<<<<<< HEAD
     if (!isEmployeeAccess) {
       setAttendanceStep('login');
       return;
@@ -390,6 +489,11 @@ function Home({ navigate, routeParams }) {
     routeLogoutCompleted,
     routeParams?.faceRegistered,
     routeParams?.refreshFaceAttendance,
+=======
+    setAttendanceStep(computedAttendanceStep);
+  }, [
+    computedAttendanceStep,
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
   ]);
 
   return (

@@ -18,6 +18,7 @@ import {
   faceAttendanceTodayStatusApi,
   faceAttendanceViewApi,
 } from '../redux/faceAttendanceSlice';
+import {getCurrentAuthSession} from '../redux/loginSlice';
 import {
   compareFaceEmbeddings,
   createImageFormFile,
@@ -102,10 +103,63 @@ const isAlreadyCompletedResponse = (error, action) => {
   return message.includes('already') && message.includes('log') && message.includes('in');
 };
 
+const normalizeIdentifier = (value) =>
+  value === null || value === undefined || value === ''
+    ? ''
+    : String(value).trim().toLowerCase();
+
+const getSessionEmployeeIdentifiers = () => {
+  const session = getCurrentAuthSession();
+  const user = session?.user || {};
+
+  return {
+    code: normalizeIdentifier(
+      user.emp_code ||
+        user.employee_code ||
+        user.emp_username ||
+        user.username,
+    ),
+    id: normalizeIdentifier(user.emp_id || user.employee_id || user.id),
+  };
+};
+
+const getProfileEmployeeIdentifiers = ({employee = {}, profile = {}} = {}) => ({
+  code: normalizeIdentifier(
+    employee.emp_code ||
+      employee.employee_code ||
+      profile.emp_code ||
+      profile.employee_code,
+  ),
+  id: normalizeIdentifier(
+    employee.emp_id ||
+      employee.employee_id ||
+      employee.id ||
+      profile.emp_id ||
+      profile.employee_id ||
+      profile.id,
+  ),
+});
+
+const isCurrentEmployeeFaceProfile = ({employee, profile}) => {
+  const sessionIds = getSessionEmployeeIdentifiers();
+  const profileIds = getProfileEmployeeIdentifiers({employee, profile});
+
+  if (sessionIds.id && profileIds.id) {
+    return sessionIds.id === profileIds.id;
+  }
+
+  if (sessionIds.code && profileIds.code) {
+    return sessionIds.code === profileIds.code;
+  }
+
+  return false;
+};
+
 function Scan({navigate, routeParams}) {
   const cameraRef = useRef(null);
   const autoScanTimerRef = useRef(null);
   const hasAutoScannedRef = useRef(false);
+  const isMountedRef = useRef(true);
   const scanStartedAtRef = useRef(Date.now());
   const device = useCameraDevice('front');
   const photoOutput = usePhotoOutput();
@@ -121,24 +175,34 @@ function Scan({navigate, routeParams}) {
   const [detectionState] = useState(getDetectionStatus);
   const [scanRetryKey, setScanRetryKey] = useState(0);
 
+  const setSafePermissionState = useCallback((message) => {
+    if (isMountedRef.current) {
+      setPermissionState(message);
+    }
+  }, []);
+
   const openFrontCamera = useCallback(async () => {
     if (!device) {
-      setPermissionState('No front camera found on this device.');
+      setSafePermissionState('No front camera found on this device.');
       return false;
     }
     if (!hasPermission) {
-      setPermissionState('Requesting permission...');
+      setSafePermissionState('Requesting permission...');
       const granted = await requestPermission();
       if (!granted) {
-        setCameraEnabled(false);
-        setPermissionState('Camera permission denied.');
+        if (isMountedRef.current) {
+          setCameraEnabled(false);
+        }
+        setSafePermissionState('Camera permission denied.');
         return false;
       }
     }
-    setCameraEnabled(true);
-    setPermissionState('Camera active. Scanning face automatically...');
+    if (isMountedRef.current) {
+      setCameraEnabled(true);
+    }
+    setSafePermissionState('Camera active. Scanning face automatically...');
     return true;
-  }, [device, hasPermission, requestPermission]);
+  }, [device, hasPermission, requestPermission, setSafePermissionState]);
 
   const captureAndPunch = useCallback(async () => {
     if (!cameraEnabled || !hasPermission || !device) {
@@ -149,16 +213,22 @@ function Scan({navigate, routeParams}) {
     let locationPayload = null;
 
     try {
-      setIsSubmitting(true);
-      setPermissionState(`${actionLabel} face scan in progress...`);
+      if (isMountedRef.current) {
+        setIsSubmitting(true);
+      }
+      setSafePermissionState(`${actionLabel} face scan in progress...`);
 
       const photo = await photoOutput.capturePhotoToFile(
         {enableShutterSound: true, flashMode: 'off'},
         {},
       );
 
+      if (!isMountedRef.current) {
+        return;
+      }
+
       if (!photo?.filePath) {
-        setPermissionState('Unable to save selfie. Please try again.');
+        setSafePermissionState('Unable to save selfie. Please try again.');
         return;
       }
 
@@ -167,34 +237,61 @@ function Scan({navigate, routeParams}) {
         : `file://${photo.filePath}`;
       const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
 
+      if (!isMountedRef.current) {
+        return;
+      }
+
       const faceCapture = validateSingleFaceCapture(faces);
       if (faceCapture.error) {
         const elapsedMs = Date.now() - scanStartedAtRef.current;
         if (elapsedMs < 10000) {
           hasAutoScannedRef.current = false;
+<<<<<<< HEAD
           setScanRetryKey((key) => key + 1);
           setPermissionState('Looking for the registered face...');
+=======
+          setSafePermissionState('Looking for the registered face...');
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
         } else {
-          setPermissionState(faceCapture.error);
+          setSafePermissionState(faceCapture.error);
         }
         return;
       }
 
       const faceEmbedding = faceCapture.faceEmbedding;
       locationPayload = await getFaceAttendanceLocationPayload();
+      if (!isMountedRef.current) {
+        return;
+      }
       const profileResponse = await faceAttendanceViewApi({
         action,
-        faceEmbedding,
         ...locationPayload,
       });
-      const profile = profileResponse?.data?.data?.face_profile || {};
+      if (!isMountedRef.current) {
+        return;
+      }
+      const profileData = profileResponse?.data?.data || {};
+      const profile = profileData.face_profile || {};
+      const employee = profileData.employee || {};
+
+      if (!isCurrentEmployeeFaceProfile({employee, profile})) {
+        setSafePermissionState(
+          'Face profile does not belong to this logged-in employee. Please login with the correct account.',
+        );
+        return;
+      }
+
       const registeredEmbedding = getProfileFaceEmbedding(profile);
       const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
 
       if (!faceMatch.isMatch) {
+<<<<<<< HEAD
         hasAutoScannedRef.current = false;
         setScanRetryKey((key) => key + 1);
         setPermissionState('Wrong person detected. Please scan the registered employee face only.');
+=======
+        setSafePermissionState('Wrong face detected. Please scan the registered employee face.');
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
         return;
       }
 
@@ -204,13 +301,16 @@ function Scan({navigate, routeParams}) {
         ...locationPayload,
         selfie: createImageFormFile(uri, `${action}-selfie.jpg`),
       });
+      if (!isMountedRef.current) {
+        return;
+      }
       try {
         await faceAttendanceTodayStatusApi();
       } catch (statusError) {
         console.log(`Face ${actionLabel} Today Status Refresh Error:`, statusError?.response || statusError);
       }
 
-      setPermissionState(`${actionLabel} successful.`);
+      setSafePermissionState(`${actionLabel} successful.`);
       navigate?.('home', {
         faceActionCompleted: action,
         faceRegistered: true,
@@ -228,9 +328,11 @@ function Scan({navigate, routeParams}) {
         });
         return;
       }
-      setPermissionState(error.message || `${actionLabel} failed. Please try again.`);
+      setSafePermissionState(error.message || `${actionLabel} failed. Please try again.`);
     } finally {
-      setIsSubmitting(false);
+      if (isMountedRef.current) {
+        setIsSubmitting(false);
+      }
     }
   }, [
     action,
@@ -241,18 +343,27 @@ function Scan({navigate, routeParams}) {
     navigate,
     openFrontCamera,
     photoOutput,
+    setSafePermissionState,
   ]);
 
   const showCamera = cameraEnabled && hasPermission && device;
 
   useEffect(() => {
+    isMountedRef.current = true;
     hasAutoScannedRef.current = false;
     scanStartedAtRef.current = Date.now();
+
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [action]);
 
   useEffect(() => {
-    openFrontCamera();
-  }, [openFrontCamera]);
+    openFrontCamera().catch((error) => {
+      console.log('Open Front Camera Error:', error);
+      setSafePermissionState(error.message || 'Unable to open camera.');
+    });
+  }, [openFrontCamera, setSafePermissionState]);
 
   useEffect(() => {
     if (!showCamera || isSubmitting || hasAutoScannedRef.current) {
@@ -261,7 +372,10 @@ function Scan({navigate, routeParams}) {
 
     hasAutoScannedRef.current = true;
     autoScanTimerRef.current = setTimeout(() => {
-      captureAndPunch();
+      captureAndPunch().catch((error) => {
+        console.log('Auto Face Scan Error:', error);
+        setSafePermissionState(error.message || `${actionLabel} failed. Please try again.`);
+      });
     }, 900);
 
     return () => {
@@ -269,7 +383,11 @@ function Scan({navigate, routeParams}) {
         clearTimeout(autoScanTimerRef.current);
       }
     };
+<<<<<<< HEAD
   }, [captureAndPunch, isSubmitting, scanRetryKey, showCamera]);
+=======
+  }, [actionLabel, captureAndPunch, isSubmitting, setSafePermissionState, showCamera]);
+>>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
 
   return (
     <View style={styles.container}>

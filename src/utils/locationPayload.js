@@ -45,12 +45,21 @@ const readPositionWithOptions = (options) =>
   });
 
 const withTimeout = (promise, timeout, timeoutMessage) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(timeoutMessage)), timeout);
-    }),
-  ]);
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeout);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
 
 const readCurrentPosition = async ({
   highAccuracy = true,
