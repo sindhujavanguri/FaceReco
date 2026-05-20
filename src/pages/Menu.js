@@ -24,6 +24,7 @@ const employeeRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
+  tax: 'taxFinancialYears',
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -42,6 +43,7 @@ const adminRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
+  tax: 'taxFinancialYears',
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -54,6 +56,11 @@ const adminMenu = [
     enabled: true,
     key: 'dashboard',
     title: 'Dashboard',
+  },
+  {
+    enabled: true,
+    key: 'tax',
+    title: 'TDS',
   },
   {
     enabled: true,
@@ -99,6 +106,7 @@ const menuIcons = {
   leave_management: require('../../assets/images/leave.png'),
   payroll: require('../../assets/images/payroll.png'),
   profile: require('../../assets/images/profil.png'),
+  tax: require('../../assets/images/payroll.png'),
   timesheet: require('../../assets/images/schedule.png'),
   work_reports: require('../../assets/images/report.png'),
 };
@@ -112,6 +120,7 @@ const menuMeta = {
   work_reports:    { subtitle: 'Daily & monthly',iconBg: '#EEEDFE', iconTint: '#534AB7' },
   documents:       { subtitle: 'View & upload',  iconBg: '#FCEBEB', iconTint: '#A32D2D' },
   profile:         { subtitle: 'Your info',      iconBg: '#FBEAF0', iconTint: '#993556' },
+  tax:             { subtitle: 'Tax review',     iconBg: '#EAF4FF', iconTint: '#175CD3' },
 };
 
 const fallbackMeta = { subtitle: '', iconBg: '#F1EFE8', iconTint: '#5F5E5A' };
