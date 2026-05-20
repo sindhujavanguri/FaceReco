@@ -246,12 +246,8 @@ function Scan({navigate, routeParams}) {
         const elapsedMs = Date.now() - scanStartedAtRef.current;
         if (elapsedMs < 10000) {
           hasAutoScannedRef.current = false;
-<<<<<<< HEAD
           setScanRetryKey((key) => key + 1);
-          setPermissionState('Looking for the registered face...');
-=======
           setSafePermissionState('Looking for the registered face...');
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
         } else {
           setSafePermissionState(faceCapture.error);
         }
@@ -285,13 +281,9 @@ function Scan({navigate, routeParams}) {
       const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
 
       if (!faceMatch.isMatch) {
-<<<<<<< HEAD
         hasAutoScannedRef.current = false;
         setScanRetryKey((key) => key + 1);
-        setPermissionState('Wrong person detected. Please scan the registered employee face only.');
-=======
         setSafePermissionState('Wrong face detected. Please scan the registered employee face.');
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
         return;
       }
 
@@ -383,11 +375,7 @@ function Scan({navigate, routeParams}) {
         clearTimeout(autoScanTimerRef.current);
       }
     };
-<<<<<<< HEAD
-  }, [captureAndPunch, isSubmitting, scanRetryKey, showCamera]);
-=======
-  }, [actionLabel, captureAndPunch, isSubmitting, setSafePermissionState, showCamera]);
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
+  }, [actionLabel, captureAndPunch, isSubmitting, scanRetryKey, setSafePermissionState, showCamera]);
 
   return (
     <View style={styles.container}>

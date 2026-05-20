@@ -24,15 +24,11 @@ const employeeRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
-<<<<<<< HEAD
   employee_tax: 'tds',
   income_tax: 'tds',
   tax: 'tds',
   tax_management: 'tds',
   tds: 'tds',
-=======
-  tax: 'taxFinancialYears',
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -43,6 +39,7 @@ const employeeRouteByKey = {
 const adminRouteByKey = {
   add_expense: 'addExpense',
   add_work_report: 'addWorkReport',
+  admin_tax: 'taxFinancialYears',
   daily_work_report: 'dailyWorkReport',
   dashboard: 'home',
   documents: 'documents',
@@ -51,15 +48,11 @@ const adminRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
-<<<<<<< HEAD
-  employee_tax: 'tds',
-  income_tax: 'tds',
-  tax: 'tds',
-  tax_management: 'tds',
-  tds: 'tds',
-=======
+  employee_tax: 'taxFinancialYears',
+  income_tax: 'taxFinancialYears',
   tax: 'taxFinancialYears',
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
+  tax_management: 'taxFinancialYears',
+  tds: 'taxFinancialYears',
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -75,7 +68,7 @@ const adminMenu = [
   },
   {
     enabled: true,
-    key: 'tax',
+    key: 'admin_tax',
     title: 'TDS',
   },
   {
@@ -122,6 +115,7 @@ const menuIcons = {
   leave_management: require('../../assets/images/leave.png'),
   payroll: require('../../assets/images/payroll.png'),
   profile: require('../../assets/images/profil.png'),
+  admin_tax: require('../../assets/images/payroll.png'),
   tax: require('../../assets/images/payroll.png'),
   timesheet: require('../../assets/images/schedule.png'),
   work_reports: require('../../assets/images/report.png'),
@@ -141,14 +135,17 @@ const menuMeta = {
   work_reports:    { subtitle: 'Daily & monthly',iconBg: '#EEEDFE', iconTint: '#534AB7' },
   documents:       { subtitle: 'View & upload',  iconBg: '#FCEBEB', iconTint: '#A32D2D' },
   profile:         { subtitle: 'Your info',      iconBg: '#FBEAF0', iconTint: '#993556' },
-  tax:             { subtitle: 'Tax review',     iconBg: '#EAF4FF', iconTint: '#175CD3' },
+  admin_tax:        { subtitle: 'Tax review',     iconBg: '#EAF4FF', iconTint: '#175CD3' },
 };
 
 const fallbackMeta = { subtitle: '', iconBg: '#F1EFE8', iconTint: '#5F5E5A' };
 
-const getTaxRouteFromTitle = (title = '') => {
+const getTaxRouteFromTitle = (title = '', isAdmin = false) => {
   const normalizedTitle = String(title).toLowerCase();
-  return normalizedTitle.includes('tds') || normalizedTitle.includes('tax') ? 'tds' : '';
+  if (!normalizedTitle.includes('tds') && !normalizedTitle.includes('tax')) {
+    return '';
+  }
+  return isAdmin ? 'taxFinancialYears' : 'tds';
 };
 
 function MenuItem({ item, index, onPress }) {
@@ -239,7 +236,7 @@ function Menu({ navigate }) {
     const route =
       routeByKey[item.key] ||
       routeByKey[normalizedKey] ||
-      getTaxRouteFromTitle(item.title) ||
+      getTaxRouteFromTitle(item.title, isAdmin) ||
       'home';
     navigate(route);
   };

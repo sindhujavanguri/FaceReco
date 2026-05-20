@@ -155,7 +155,6 @@ const readTodayLoggedInFlag = (source) => {
   return loginValue !== undefined ? true : undefined;
 };
 
-<<<<<<< HEAD
 const readTodayLoggedOutFlag = (source) => {
   const logoutValue = findAttendanceValue(source, [
     'logout',
@@ -165,7 +164,8 @@ const readTodayLoggedOutFlag = (source) => {
   ]);
 
   return logoutValue !== undefined;
-=======
+};
+
 const getAttendanceRecords = (monthlyAttendance = {}) =>
   Array.isArray(monthlyAttendance.attendance)
     ? monthlyAttendance.attendance
@@ -243,7 +243,6 @@ const getAttendanceStepFromRecord = ({
   }
 
   return 'login';
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
 };
 
 function SummaryCard({ label, value, tone }) {
@@ -430,13 +429,6 @@ function Home({ navigate, routeParams }) {
     routeFaceRegisteredFlag ||
     apiFaceRegisteredFlag === true ||
     registerResponseFlag === true;
-<<<<<<< HEAD
-  const routeLoginCompleted = routeParams?.faceActionCompleted === 'login';
-  const routeLogoutCompleted = routeParams?.faceActionCompleted === 'logout';
-  const loggedInFlag = readTodayLoggedInFlag(todayFaceStatus);
-  const isFaceLoggedOut = routeLogoutCompleted || readTodayLoggedOutFlag(todayFaceStatus);
-  const isFaceLoggedIn = !isFaceLoggedOut && (routeLoginCompleted || Boolean(loggedInFlag));
-=======
   const computedAttendanceStep = getAttendanceStepFromRecord({
     faceRegistered: faceRegisteredFlag,
     isEmployeeAccess,
@@ -445,7 +437,8 @@ function Home({ navigate, routeParams }) {
     todayFaceStatus,
   });
   const isFaceLoggedIn = computedAttendanceStep === 'logout';
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
+  const isFaceLoggedOut =
+    computedAttendanceStep === 'done' || readTodayLoggedOutFlag(todayFaceStatus);
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
   const currentScanLabel = currentScanMode === 'logout' ? 'Logout' : 'Login';
@@ -458,42 +451,9 @@ function Home({ navigate, routeParams }) {
     : 'No pending request';
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!isEmployeeAccess) {
-      setAttendanceStep('login');
-      return;
-    }
-
-    if (isFaceLoggedOut) {
-      setAttendanceStep('done');
-      return;
-    }
-
-    if (routeLoginCompleted || isFaceLoggedIn) {
-      setAttendanceStep('logout');
-      return;
-    }
-
-    if (faceRegisteredFlag === true) {
-      setAttendanceStep('login');
-      return;
-    }
-
-    setAttendanceStep('register');
-  }, [
-    faceRegisteredFlag,
-    isFaceLoggedIn,
-    isFaceLoggedOut,
-    isEmployeeAccess,
-    routeLoginCompleted,
-    routeLogoutCompleted,
-    routeParams?.faceRegistered,
-    routeParams?.refreshFaceAttendance,
-=======
     setAttendanceStep(computedAttendanceStep);
   }, [
     computedAttendanceStep,
->>>>>>> 1023a4abbeb5cefd65c2076ef4cb6bb940d3f725
   ]);
 
   return (
