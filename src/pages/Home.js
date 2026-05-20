@@ -146,6 +146,17 @@ const readTodayLoggedInFlag = (source) => {
   return loginValue !== undefined ? true : undefined;
 };
 
+const readTodayLoggedOutFlag = (source) => {
+  const logoutValue = findAttendanceValue(source, [
+    'logout',
+    'logout_time',
+    'logged_out_at',
+    'out_time',
+  ]);
+
+  return logoutValue !== undefined;
+};
+
 function SummaryCard({ label, value, tone }) {
   return (
     <View style={styles.summaryCard}>
@@ -335,11 +346,12 @@ function Home({ navigate, routeParams }) {
   const routeLoginCompleted = routeParams?.faceActionCompleted === 'login';
   const routeLogoutCompleted = routeParams?.faceActionCompleted === 'logout';
   const loggedInFlag = readTodayLoggedInFlag(todayFaceStatus);
-  const isFaceLoggedIn = routeLoginCompleted || Boolean(loggedInFlag);
+  const isFaceLoggedOut = routeLogoutCompleted || readTodayLoggedOutFlag(todayFaceStatus);
+  const isFaceLoggedIn = !isFaceLoggedOut && (routeLoginCompleted || Boolean(loggedInFlag));
   const faceActionMode = isFaceLoggedIn ? 'logout' : 'login';
   const currentScanMode = attendanceStep === 'logout' ? 'logout' : 'login';
   const currentScanLabel = currentScanMode === 'logout' ? 'Logout' : 'Login';
-  const isAttendanceDone = attendanceStep === 'done';
+  const isAttendanceDone = attendanceStep === 'done' || isFaceLoggedOut;
   const shouldRegisterFace = isEmployeeAccess && attendanceStep === 'register';
   const noticesCount = dashboardData.notices?.length || 0;
   const birthdaysCount = dashboardData.todays_birthdays?.length || 0;
@@ -353,7 +365,7 @@ function Home({ navigate, routeParams }) {
       return;
     }
 
-    if (routeLogoutCompleted) {
+    if (isFaceLoggedOut) {
       setAttendanceStep('done');
       return;
     }
@@ -372,6 +384,7 @@ function Home({ navigate, routeParams }) {
   }, [
     faceRegisteredFlag,
     isFaceLoggedIn,
+    isFaceLoggedOut,
     isEmployeeAccess,
     routeLoginCompleted,
     routeLogoutCompleted,
@@ -490,7 +503,7 @@ function Home({ navigate, routeParams }) {
 
               {isAttendanceDone && (
                 <View style={styles.attendanceDoneBox}>
-                  <Text style={styles.attendanceDoneText}>Attendance done</Text>
+                  <Text style={styles.attendanceDoneText}>Attendance Completed</Text>
                 </View>
               )}
             </>

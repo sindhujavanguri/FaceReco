@@ -39,6 +39,8 @@ const AdminLeaveListScreen = require('./src/pages/AdminLeaveList').default;
 const AdminLeaveStatusScreen = require('./src/pages/AdminLeaveStatus').default;
 const TimesheetScreen = require('./src/pages/Timesheet').default;
 const PayrollScreen = require('./src/pages/Payroll').default;
+const TDSScreen = require('./src/pages/TDS').default;
+const TdsDetailsScreen = require('./src/pages/TdsDetails').default;
 const DocumentsScreen = require('./src/pages/Documents').default;
 const UploadDocumentsScreen = require('./src/pages/UploadDocuments').default;
 const ViewDocumentsScreen = require('./src/pages/ViewDocuments').default;
@@ -80,6 +82,8 @@ type RouteName =
   | 'adminLeaveStatus'
   | 'timesheet'
   | 'payroll'
+  | 'tds'
+  | 'tdsDetails'
   | 'documents'
   | 'uploadDocuments'
   | 'viewDocuments'
@@ -124,6 +128,8 @@ const routes: Record<RouteName, React.ComponentType<AppPageProps>> = {
   adminLeaveStatus: AdminLeaveStatusScreen,
   timesheet: TimesheetScreen,
   payroll: PayrollScreen,
+  tds: TDSScreen,
+  tdsDetails: TdsDetailsScreen,
   documents: DocumentsScreen,
   uploadDocuments: UploadDocumentsScreen,
   viewDocuments: ViewDocumentsScreen,
@@ -163,6 +169,8 @@ const routeTitles: Record<RouteName, string> = {
   adminLeaveStatus: 'Admin Leave Status',
   timesheet: 'Timesheet',
   payroll: 'Payroll',
+  tds: 'Employee Tax Details',
+  tdsDetails: 'TDS Details',
   documents: 'Documents',
   uploadDocuments: 'Upload Documents',
   viewDocuments: 'View Documents',

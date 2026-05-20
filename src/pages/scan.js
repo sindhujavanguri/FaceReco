@@ -119,6 +119,7 @@ function Scan({navigate, routeParams}) {
     'Camera permission required to begin scanning.',
   );
   const [detectionState] = useState(getDetectionStatus);
+  const [scanRetryKey, setScanRetryKey] = useState(0);
 
   const openFrontCamera = useCallback(async () => {
     if (!device) {
@@ -171,6 +172,7 @@ function Scan({navigate, routeParams}) {
         const elapsedMs = Date.now() - scanStartedAtRef.current;
         if (elapsedMs < 10000) {
           hasAutoScannedRef.current = false;
+          setScanRetryKey((key) => key + 1);
           setPermissionState('Looking for the registered face...');
         } else {
           setPermissionState(faceCapture.error);
@@ -190,7 +192,9 @@ function Scan({navigate, routeParams}) {
       const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
 
       if (!faceMatch.isMatch) {
-        setPermissionState('Wrong face detected. Please scan the registered employee face.');
+        hasAutoScannedRef.current = false;
+        setScanRetryKey((key) => key + 1);
+        setPermissionState('Wrong person detected. Please scan the registered employee face only.');
         return;
       }
 
@@ -265,7 +269,7 @@ function Scan({navigate, routeParams}) {
         clearTimeout(autoScanTimerRef.current);
       }
     };
-  }, [captureAndPunch, isSubmitting, showCamera]);
+  }, [captureAndPunch, isSubmitting, scanRetryKey, showCamera]);
 
   return (
     <View style={styles.container}>

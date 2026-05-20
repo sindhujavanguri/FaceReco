@@ -24,6 +24,11 @@ const employeeRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
+  employee_tax: 'tds',
+  income_tax: 'tds',
+  tax: 'tds',
+  tax_management: 'tds',
+  tds: 'tds',
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -42,6 +47,11 @@ const adminRouteByKey = {
   monthly_work_report: 'monthlyWorkReport',
   payroll: 'payroll',
   profile: 'profile',
+  employee_tax: 'tds',
+  income_tax: 'tds',
+  tax: 'tds',
+  tax_management: 'tds',
+  tds: 'tds',
   timesheet: 'timesheet',
   upload_documents: 'uploadDocuments',
   view_documents: 'viewDocuments',
@@ -108,6 +118,11 @@ const menuMeta = {
   leave_management:{ subtitle: 'Apply & track',  iconBg: '#E6EEF9', iconTint: '#185FA5' },
   timesheet:       { subtitle: 'Daily hours',    iconBg: '#E1F5EE', iconTint: '#0F6E56' },
   payroll:         { subtitle: 'Salary slips',   iconBg: '#EAF3DE', iconTint: '#3B6D11' },
+  employee_tax:    { subtitle: 'TDS forms',      iconBg: '#E9F7F7', iconTint: '#0F6E6E' },
+  income_tax:      { subtitle: 'TDS forms',      iconBg: '#E9F7F7', iconTint: '#0F6E6E' },
+  tax:             { subtitle: 'TDS forms',      iconBg: '#E9F7F7', iconTint: '#0F6E6E' },
+  tax_management:  { subtitle: 'TDS forms',      iconBg: '#E9F7F7', iconTint: '#0F6E6E' },
+  tds:             { subtitle: 'TDS forms',      iconBg: '#E9F7F7', iconTint: '#0F6E6E' },
   expenses:        { subtitle: 'Claims',         iconBg: '#FAEEDA', iconTint: '#854F0B' },
   work_reports:    { subtitle: 'Daily & monthly',iconBg: '#EEEDFE', iconTint: '#534AB7' },
   documents:       { subtitle: 'View & upload',  iconBg: '#FCEBEB', iconTint: '#A32D2D' },
@@ -115,6 +130,11 @@ const menuMeta = {
 };
 
 const fallbackMeta = { subtitle: '', iconBg: '#F1EFE8', iconTint: '#5F5E5A' };
+
+const getTaxRouteFromTitle = (title = '') => {
+  const normalizedTitle = String(title).toLowerCase();
+  return normalizedTitle.includes('tds') || normalizedTitle.includes('tax') ? 'tds' : '';
+};
 
 function MenuItem({ item, index, onPress }) {
   const icon = menuIcons[item.key];
@@ -200,7 +220,12 @@ function Menu({ navigate }) {
 
   const handleMenuPress = (item) => {
     const routeByKey = isAdmin ? adminRouteByKey : employeeRouteByKey;
-    const route = routeByKey[item.key] || 'home';
+    const normalizedKey = String(item.key || '').toLowerCase();
+    const route =
+      routeByKey[item.key] ||
+      routeByKey[normalizedKey] ||
+      getTaxRouteFromTitle(item.title) ||
+      'home';
     navigate(route);
   };
 
