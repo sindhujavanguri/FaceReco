@@ -1,6 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -135,17 +134,16 @@ function Expenses({navigate, routeParams}) {
   const handleDownload = async (expense) => {
     try {
       setStatusText('Downloading attachment...');
-      if (expense.attachment_url) {
-        await Linking.openURL(expense.attachment_url);
-        setStatusText('Attachment opened for download.');
-        return;
-      }
-
       const response = await downloadEmployeeExpenseAttachmentApi({
+        attachmentUrl: expense.attachment_url,
         expenseId: expense.id,
+        fileName: expense.attachment_name || expense.file_name,
       });
-      await Linking.openURL(response.url);
-      setStatusText('Attachment opened for download.');
+      setStatusText(
+        response?.data?.visibleInDownloads
+          ? 'Attachment downloaded to Downloads.'
+          : 'Attachment downloaded successfully.',
+      );
     } catch (error) {
       console.log('Expense Attachment Download Error:', error?.response || error);
       setStatusText(error.message || 'Expense attachment not found.');
