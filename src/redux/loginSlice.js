@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import RNBlobUtil from 'react-native-blob-util';
 
 const ADMIN_LOGIN_API_URL = 'https://api.apphrms.com/admin/login.php';
 const ADMIN_LOGOUT_API_URL = 'https://api.apphrms.com/admin/logout.php';
@@ -7,42 +8,156 @@ const EMPLOYEE_LOGIN_API_URL = 'https://api.apphrms.com/employee/login.php';
 const EMPLOYEE_LOGOUT_API_URL = 'https://api.apphrms.com/employee/logout.php';
 export const CLIENT_CODE = 'qa2';
 const AUTH_SESSION_STORAGE_KEY = 'faceReco.authSession';
+const AUTH_SESSION_BACKUP_STORAGE_KEY = 'faceReco.authSession.backup';
+const AUTH_SESSION_FILE_PATH = `${RNBlobUtil.fs.dirs.DocumentDir}/faceReco-auth-session.json`;
 
 let latestAuthToken = null;
 let latestLoginMode = 'admin';
 let latestAuthSession = null;
+
+const buildStoredAuthSession = () => ({
+  mode: latestLoginMode,
+  savedAt: new Date().toISOString(),
+  session: latestAuthSession,
+  token: latestAuthToken,
+});
+
+const isValidStoredSession = (savedSession) =>
+  savedSession &&
+  typeof savedSession === 'object' &&
+  savedSession.session &&
+  typeof savedSession.session === 'object' &&
+  normalizeMode(savedSession.mode || savedSession.session?.mode);
+
+const applyStoredAuthSession = (savedSession) => {
+  latestAuthToken = savedSession?.token || null;
+  latestLoginMode = normalizeMode(savedSession?.mode || savedSession?.session?.mode);
+  latestAuthSession = {
+    ...(savedSession?.session || {}),
+    mode: normalizeMode(savedSession?.session?.mode || savedSession?.mode),
+  };
+  return latestAuthSession;
+};
+
+const readStoredAuthSession = async (key) => {
+  const savedSessionText = await AsyncStorage.getItem(key);
+  if (!savedSessionText) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(savedSessionText);
+  } catch (parseError) {
+    console.log('Parse Auth Session Error:', {key, parseError});
+    return null;
+  }
+};
+
+const readFileAuthSession = async () => {
+  try {
+    const exists = await RNBlobUtil.fs.exists(AUTH_SESSION_FILE_PATH);
+    if (!exists) {
+      return null;
+    }
+
+    const savedSessionText = await RNBlobUtil.fs.readFile(
+      AUTH_SESSION_FILE_PATH,
+      'utf8',
+    );
+    return savedSessionText ? JSON.parse(savedSessionText) : null;
+  } catch (fileError) {
+    console.log('Read File Auth Session Error:', fileError);
+    return null;
+  }
+};
+
+const writeFileAuthSession = async (authSessionText) => {
+  try {
+    await RNBlobUtil.fs.writeFile(
+      AUTH_SESSION_FILE_PATH,
+      authSessionText,
+      'utf8',
+    );
+    console.log('Save File Auth Session Success.');
+  } catch (fileError) {
+    console.log('Save File Auth Session Error:', fileError);
+  }
+};
+
+const removeFileAuthSession = async () => {
+  try {
+    const exists = await RNBlobUtil.fs.exists(AUTH_SESSION_FILE_PATH);
+    if (exists) {
+      await RNBlobUtil.fs.unlink(AUTH_SESSION_FILE_PATH);
+    }
+  } catch (fileError) {
+    console.log('Clear File Auth Session Error:', fileError);
+  }
+};
 
 const saveAuthSession = async () => {
   if (!latestAuthSession) {
     return;
   }
 
+  const authSessionText = JSON.stringify(buildStoredAuthSession());
+
   try {
-    await AsyncStorage.setItem(
-      AUTH_SESSION_STORAGE_KEY,
-      JSON.stringify({
-        mode: latestLoginMode,
-        session: latestAuthSession,
-        token: latestAuthToken,
-      })
-    );
+    await AsyncStorage.multiSet([
+      [AUTH_SESSION_STORAGE_KEY, authSessionText],
+      [AUTH_SESSION_BACKUP_STORAGE_KEY, authSessionText],
+    ]);
+    console.log('Save Auth Session Success:', {
+      mode: latestLoginMode,
+      user:
+        latestAuthSession?.user?.emp_code ||
+        latestAuthSession?.user?.admin_username ||
+        latestAuthSession?.user?.emp_username ||
+        latestAuthSession?.user?.name ||
+        '',
+    });
   } catch (storageError) {
     console.log('Save Auth Session Error:', storageError);
   }
+
+  await writeFileAuthSession(authSessionText);
 };
 
 export const restoreAuthSession = async () => {
   try {
-    const savedSessionText = await AsyncStorage.getItem(AUTH_SESSION_STORAGE_KEY);
-    if (!savedSessionText) {
+    const primarySession = await readStoredAuthSession(AUTH_SESSION_STORAGE_KEY);
+    const backupSession = primarySession
+      ? null
+      : await readStoredAuthSession(AUTH_SESSION_BACKUP_STORAGE_KEY);
+    const fileSession =
+      primarySession || backupSession ? null : await readFileAuthSession();
+    const savedSession = primarySession || backupSession || fileSession;
+
+    if (!isValidStoredSession(savedSession)) {
+      console.log('Restore Auth Session Empty.');
       return null;
     }
 
-    const savedSession = JSON.parse(savedSessionText);
-    latestAuthToken = savedSession?.token || null;
-    latestLoginMode = normalizeMode(savedSession?.mode);
-    latestAuthSession = savedSession?.session || null;
-    return latestAuthSession;
+    const restoredSession = applyStoredAuthSession(savedSession);
+    if (!primarySession && (backupSession || fileSession)) {
+      await AsyncStorage.setItem(
+        AUTH_SESSION_STORAGE_KEY,
+        JSON.stringify(savedSession),
+      );
+    }
+    if (savedSession && !fileSession) {
+      await writeFileAuthSession(JSON.stringify(savedSession));
+    }
+    console.log('Restore Auth Session Success:', {
+      mode: latestLoginMode,
+      user:
+        restoredSession?.user?.emp_code ||
+        restoredSession?.user?.admin_username ||
+        restoredSession?.user?.emp_username ||
+        restoredSession?.user?.name ||
+        '',
+    });
+    return restoredSession;
   } catch (storageError) {
     console.log('Restore Auth Session Error:', storageError);
     return null;
@@ -55,7 +170,11 @@ export const clearStoredAuthSession = async () => {
   latestAuthSession = null;
 
   try {
-    await AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    await AsyncStorage.multiRemove([
+      AUTH_SESSION_STORAGE_KEY,
+      AUTH_SESSION_BACKUP_STORAGE_KEY,
+    ]);
+    await removeFileAuthSession();
   } catch (storageError) {
     console.log('Clear Auth Session Error:', storageError);
   }
