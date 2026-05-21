@@ -1,12 +1,13 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
 import RNBlobUtil from 'react-native-blob-util';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
-const DOCUMENT_LIST_API_URL = 'https://api.apphrms.com/employee/documents/list.php';
-const DOCUMENT_UPLOAD_API_URL = 'https://api.apphrms.com/employee/documents/upload.php';
-const DOCUMENT_DOWNLOAD_API_URL = 'https://api.apphrms.com/employee/documents/download.php';
-const DOCUMENT_DELETE_API_URL = 'https://api.apphrms.com/employee/documents/delete.php';
+const DOCUMENT_LIST_API_URL = `${Config.apiBaseUrl}/employee/documents/list.php`;
+const DOCUMENT_UPLOAD_API_URL = `${Config.apiBaseUrl}/employee/documents/upload.php`;
+const DOCUMENT_DOWNLOAD_API_URL = `${Config.apiBaseUrl}/employee/documents/download.php`;
+const DOCUMENT_DELETE_API_URL = `${Config.apiBaseUrl}/employee/documents/delete.php`;
 
 let latestDocumentListResponse = null;
 let latestUploadDocumentResponse = null;

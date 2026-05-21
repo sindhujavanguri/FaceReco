@@ -1,18 +1,19 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 import { FACE_MODEL_NAME } from '../utils/faceEmbedding';
 
 const FACE_ATTENDANCE_REGISTER_API_URL =
-  'https://api.apphrms.com/employee/face-attendance/register.php';
+  `${Config.apiBaseUrl}/employee/face-attendance/register.php`;
 const FACE_ATTENDANCE_EDIT_API_URL =
-  'https://api.apphrms.com/employee/face-attendance/edit.php';
+  `${Config.apiBaseUrl}/employee/face-attendance/edit.php`;
 const FACE_ATTENDANCE_VIEW_API_URL =
-  'https://api.apphrms.com/employee/face-attendance/view.php';
+  `${Config.apiBaseUrl}/employee/face-attendance/view.php`;
 const FACE_ATTENDANCE_PUNCH_API_URL =
-  'https://api.apphrms.com/employee/face-attendance/punch.php';
+  `${Config.apiBaseUrl}/employee/face-attendance/punch.php`;
 const FACE_ATTENDANCE_TODAY_API_URL =
-  'https://api.apphrms.com/employee/face-attendance/today.php';
+  `${Config.apiBaseUrl}/employee/face-attendance/today.php`;
 
 let latestRegisterResponse = null;
 let latestEditResponse = null;

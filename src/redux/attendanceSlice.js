@@ -1,8 +1,9 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
 const EMPLOYEE_MONTHLY_ATTENDANCE_API_URL =
-  'https://api.apphrms.com/employee/attendance/monthly.php';
+  `${Config.apiBaseUrl}/employee/attendance/monthly.php`;
 
 let latestMonthlyAttendanceResponse = null;
 

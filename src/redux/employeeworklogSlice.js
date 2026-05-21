@@ -1,14 +1,15 @@
 import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
+import {Config} from '../Config';
 import {CLIENT_CODE, getCurrentAuthToken} from './loginSlice';
 
 const WORK_LOG_OPTIONS_API_URL =
-  'https://api.apphrms.com/employee/worklogs/options.php';
+  `${Config.apiBaseUrl}/employee/worklogs/options.php`;
 const WORK_LOG_LIST_API_URL =
-  'https://api.apphrms.com/employee/worklogs/list.php';
+  `${Config.apiBaseUrl}/employee/worklogs/list.php`;
 const WORK_LOG_SAVE_API_URL =
-  'https://api.apphrms.com/employee/worklogs/save.php';
+  `${Config.apiBaseUrl}/employee/worklogs/save.php`;
 const WORK_LOG_DELETE_API_URL =
-  'https://api.apphrms.com/employee/worklogs/delete.php';
+  `${Config.apiBaseUrl}/employee/worklogs/delete.php`;
 
 let latestWorkLogOptionsResponse = null;
 let latestWorkLogListResponse = null;

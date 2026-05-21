@@ -1,11 +1,12 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
-const EMPLOYEE_PROFILE_API_URL = 'https://api.apphrms.com/employee/profile.php';
-const EMPLOYEE_DASHBOARD_API_URL = 'https://api.apphrms.com/employee/dashboard.php';
-const EMPLOYEE_NAVIGATION_API_URL = 'https://api.apphrms.com/employee/navigation.php';
+const EMPLOYEE_PROFILE_API_URL = `${Config.apiBaseUrl}/employee/profile.php`;
+const EMPLOYEE_DASHBOARD_API_URL = `${Config.apiBaseUrl}/employee/dashboard.php`;
+const EMPLOYEE_NAVIGATION_API_URL = `${Config.apiBaseUrl}/employee/navigation.php`;
 const EMPLOYEE_PROFILE_UPDATE_STATUS_API_URL =
-  'https://api.apphrms.com/employee/profile-update-status.php';
+  `${Config.apiBaseUrl}/employee/profile-update-status.php`;
 
 let latestEmployeeProfileResponse = null;
 let latestEmployeeDashboardResponse = null;

@@ -1,11 +1,12 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
 const LEAVE_CATEGORY_API_URL =
-  'https://api.apphrms.com/employee/leaves/categories.php';
+  `${Config.apiBaseUrl}/employee/leaves/categories.php`;
 const EMPLOYEE_LEAVE_LIST_API_URL =
-  'https://api.apphrms.com/employee/leaves/list.php';
-const APPLY_LEAVE_API_URL = 'https://api.apphrms.com/employee/leaves/apply.php';
+  `${Config.apiBaseUrl}/employee/leaves/list.php`;
+const APPLY_LEAVE_API_URL = `${Config.apiBaseUrl}/employee/leaves/apply.php`;
 
 let latestLeaveCategoriesResponse = null;
 let latestEmployeeLeaveListResponse = null;

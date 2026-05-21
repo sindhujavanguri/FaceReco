@@ -1,9 +1,10 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
 import RNBlobUtil from 'react-native-blob-util';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
-const TAX_BASE_URL = 'https://api.apphrms.com/employee/tax';
+const TAX_BASE_URL = `${Config.apiBaseUrl}/employee/tax`;
 
 export const TAX_API_URLS = {
   financialYears: `${TAX_BASE_URL}/financial-years.php`,

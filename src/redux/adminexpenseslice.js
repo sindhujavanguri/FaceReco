@@ -1,14 +1,15 @@
 import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
+import {Config} from '../Config';
 import {CLIENT_CODE, getCurrentAuthToken} from './loginSlice';
 
 const ADMIN_EXPENSE_LIST_API_URL =
-  'https://api.apphrms.com/admin/expenses/list.php';
+  `${Config.apiBaseUrl}/admin/expenses/list.php`;
 const ADMIN_EXPENSE_SAVE_API_URL =
-  'https://api.apphrms.com/admin/expenses/save.php';
+  `${Config.apiBaseUrl}/admin/expenses/save.php`;
 const ADMIN_EXPENSE_ATTACHMENT_API_URL =
-  'https://api.apphrms.com/admin/expenses/attachment.php';
+  `${Config.apiBaseUrl}/admin/expenses/attachment.php`;
 const ADMIN_EXPENSE_DELETE_API_URL =
-  'https://api.apphrms.com/admin/expenses/delete.php';
+  `${Config.apiBaseUrl}/admin/expenses/delete.php`;
 
 let latestAdminExpenseListResponse = null;
 let latestAdminExpenseByMonthResponse = null;

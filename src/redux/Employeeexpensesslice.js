@@ -1,12 +1,13 @@
 import {createAsyncThunk, createSlice} from '@reduxjs/toolkit';
+import {Config} from '../Config';
 import {CLIENT_CODE, getCurrentAuthToken} from './loginSlice';
 
 const EMPLOYEE_EXPENSE_LIST_API_URL =
-  'https://api.apphrms.com/employee/expenses/list.php';
+  `${Config.apiBaseUrl}/employee/expenses/list.php`;
 const EMPLOYEE_EXPENSE_SAVE_API_URL =
-  'https://api.apphrms.com/employee/expenses/save.php';
+  `${Config.apiBaseUrl}/employee/expenses/save.php`;
 const EMPLOYEE_EXPENSE_ATTACHMENT_API_URL =
-  'https://api.apphrms.com/employee/expenses/attachment.php';
+  `${Config.apiBaseUrl}/employee/expenses/attachment.php`;
 
 let latestExpenseListResponse = null;
 let latestExpenseByMonthResponse = null;

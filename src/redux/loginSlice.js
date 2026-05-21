@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { Config } from '../Config';
 
-const ADMIN_LOGIN_API_URL = 'https://api.apphrms.com/admin/login.php';
-const ADMIN_LOGOUT_API_URL = 'https://api.apphrms.com/admin/logout.php';
-const EMPLOYEE_LOGIN_API_URL = 'https://api.apphrms.com/employee/login.php';
-const EMPLOYEE_LOGOUT_API_URL = 'https://api.apphrms.com/employee/logout.php';
+const ADMIN_LOGIN_API_URL = `${Config.apiBaseUrl}/admin/login.php`;
+const ADMIN_LOGOUT_API_URL = `${Config.apiBaseUrl}/admin/logout.php`;
+const EMPLOYEE_LOGIN_API_URL = `${Config.apiBaseUrl}/employee/login.php`;
+const EMPLOYEE_LOGOUT_API_URL = `${Config.apiBaseUrl}/employee/logout.php`;
 export const CLIENT_CODE = 'qa2';
 const AUTH_SESSION_STORAGE_KEY = 'faceReco.authSession';
 const AUTH_SESSION_BACKUP_STORAGE_KEY = 'faceReco.authSession.backup';

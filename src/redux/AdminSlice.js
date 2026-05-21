@@ -1,7 +1,8 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
-const ADMIN_LEAVES_API_URL = 'https://api.apphrms.com/admin/leaves.php';
+const ADMIN_LEAVES_API_URL = `${Config.apiBaseUrl}/admin/leaves.php`;
 
 let latestAdminLeaveListResponse = null;
 let latestAdminLeavePendingResponse = null;

@@ -1,12 +1,13 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
 import RNBlobUtil from 'react-native-blob-util';
+import { Config } from '../Config';
 import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
 
-const PAYROLL_LIST_API_URL = 'https://api.apphrms.com/employee/payroll/list.php';
-const PAYROLL_DETAILS_API_URL = 'https://api.apphrms.com/employee/payroll/details.php';
+const PAYROLL_LIST_API_URL = `${Config.apiBaseUrl}/employee/payroll/list.php`;
+const PAYROLL_DETAILS_API_URL = `${Config.apiBaseUrl}/employee/payroll/details.php`;
 const DOWNLOAD_PAYSLIP_API_URL =
-  'https://api.apphrms.com/employee/payroll/download-payslip.php';
+  `${Config.apiBaseUrl}/employee/payroll/download-payslip.php`;
 
 let latestPayrollListResponse = null;
 let latestPayrollDetailsResponse = null;
