@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  BackHandler,
   Image,
   Pressable,
   StatusBar,
@@ -289,14 +290,30 @@ function App(): React.JSX.Element {
     setRoute(nextRoute);
   };
 
-  const goBack = (): void => {
+  const goBack = useCallback((): void => {
     setRouteStack((stack) => {
       const previousRoute = stack[stack.length - 1] || 'home';
       setRouteParams({});
       setRoute(previousRoute);
       return stack.slice(0, -1);
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    const backSubscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (isAuthRoute) {
+          return false;
+        }
+
+        goBack();
+        return true;
+      },
+    );
+
+    return () => backSubscription.remove();
+  }, [goBack, isAuthRoute]);
 
   const handleSignIn = async (): Promise<void> => {
     const currentSession = getCurrentAuthSession();

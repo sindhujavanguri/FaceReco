@@ -32,7 +32,7 @@ import {
 
 const homeIcon = require('../../assets/images/home3.png');
 const scanIcon = require('../../assets/images/scan.png');
-const settingIcon = require('../../assets/images/setting.png');
+const settingIcon = require('../../assets/images/settingg.png');
 
 const formatDisplayDate = (dateValue) => {
   const date = dateValue ? new Date(`${dateValue}T00:00:00`) : new Date();
