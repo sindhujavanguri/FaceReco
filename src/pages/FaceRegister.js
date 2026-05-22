@@ -22,8 +22,9 @@ import {
   validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
 import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
+import {REGULA_FACE_MODEL_NAME} from '../utils/regulaFaceRecognition';
 
-const MIN_FACE_SAMPLES = 1;
+const MIN_FACE_SAMPLES = 3;
 const MAX_FACE_SAMPLES = 4;
 
 const formatEmbeddingPreview = (embedding = []) => {
@@ -157,6 +158,7 @@ function FaceRegister({navigate}) {
       await faceAttendanceRegisterApi({
         faceEmbedding: registrationEmbedding,
         faceImage: latestCapturedFace.file,
+        modelName: REGULA_FACE_MODEL_NAME,
         ...locationPayload,
       });
       try {

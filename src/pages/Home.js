@@ -17,9 +17,11 @@ import {
   getCurrentMonthlyAttendanceResponse,
 } from '../redux/attendanceSlice';
 import {
+  faceAttendanceViewApi,
   faceAttendanceTodayStatusApi,
   getCurrentFaceAttendanceTodayStatusResponse,
   getCurrentFaceAttendanceRegisterResponse,
+  getCurrentFaceAttendanceViewResponse,
 } from '../redux/faceAttendanceSlice';
 import { getCurrentAuthSession } from '../redux/loginSlice';
 import {
@@ -130,6 +132,11 @@ const findAttendanceValue = (source, keys) => {
   return undefined;
 };
 
+const normalizeStatusWord = (value) =>
+  value === null || value === undefined
+    ? ''
+    : String(value).trim().toLowerCase().replace(/\s+/g, '_');
+
 const readTodayLoggedInFlag = (source) => {
   const directFlag = readLoggedInFlag(source);
   if (directFlag !== undefined) {
@@ -152,7 +159,7 @@ const readTodayLoggedInFlag = (source) => {
     'logged_in_at',
     'in_time',
   ]);
-  return loginValue !== undefined ? true : undefined;
+  return isValidAttendanceValue(loginValue) ? true : undefined;
 };
 
 const readTodayLoggedOutFlag = (source) => {
@@ -163,7 +170,27 @@ const readTodayLoggedOutFlag = (source) => {
     'out_time',
   ]);
 
-  return logoutValue !== undefined;
+  if (isValidAttendanceValue(logoutValue)) {
+    return true;
+  }
+
+  const statusValue = findAttendanceValue(source, [
+    'logged_out',
+    'is_logged_out',
+    'logout_status',
+    'attendance_status',
+    'punch_status',
+    'status',
+  ]);
+  return [
+    'logged_out',
+    'logout',
+    'out',
+    'completed',
+    'complete',
+    'done',
+    'attendance_done',
+  ].includes(normalizeStatusWord(statusValue));
 };
 
 const getAttendanceRecords = (monthlyAttendance = {}) =>
@@ -184,7 +211,7 @@ const getRecordDate = (record = {}) => {
   return String(dateValue || '').slice(0, 10);
 };
 
-const isValidLogoutValue = (value) => {
+const isValidAttendanceValue = (value) => {
   if (value === null || value === undefined) {
     return false;
   }
@@ -195,7 +222,9 @@ const isValidLogoutValue = (value) => {
       normalized !== '0000-00-00 00:00:00' &&
       normalized !== '0000-00-00' &&
       normalized !== '00:00:00' &&
-      normalized.toLowerCase() !== 'null',
+      normalized.toLowerCase() !== 'null' &&
+      normalized.toLowerCase() !== 'false' &&
+      normalized.toLowerCase() !== 'no',
   );
 };
 
@@ -217,12 +246,12 @@ const getAttendanceStepFromRecord = ({
     return 'login';
   }
 
-  if (routeAction === 'logout') {
-    return 'done';
-  }
-
   if (routeAction === 'login') {
     return 'logout';
+  }
+
+  if (routeAction === 'logout') {
+    return 'done';
   }
 
   if (!faceRegistered) {
@@ -231,15 +260,34 @@ const getAttendanceStepFromRecord = ({
 
   const todayRecord = getTodayAttendanceRecord(monthlyAttendance);
   if (todayRecord) {
-    return isValidLogoutValue(todayRecord.logout) ? 'done' : 'logout';
+    const logoutValue = findAttendanceValue(todayRecord, [
+      'logout',
+      'logout_time',
+      'logged_out_at',
+      'out_time',
+    ]);
+    if (isValidAttendanceValue(logoutValue)) {
+      return 'done';
+    }
+
+    const loginValue = findAttendanceValue(todayRecord, [
+      'login',
+      'login_time',
+      'logged_in_at',
+      'in_time',
+    ]);
+    if (isValidAttendanceValue(loginValue)) {
+      return 'logout';
+    }
+  }
+
+  if (readTodayLoggedOutFlag(todayFaceStatus)) {
+    return 'done';
   }
 
   const todayLoggedIn = readTodayLoggedInFlag(todayFaceStatus);
   if (todayLoggedIn === true) {
     return 'logout';
-  }
-  if (todayLoggedIn === false) {
-    return 'done';
   }
 
   return 'login';
@@ -281,6 +329,9 @@ function Home({ navigate, routeParams }) {
   );
   const [faceStatusResponse, setFaceStatusResponse] = useState(
     isEmployeeAccess ? null : getCurrentFaceAttendanceTodayStatusResponse()
+  );
+  const [faceProfileResponse, setFaceProfileResponse] = useState(
+    getCurrentFaceAttendanceViewResponse()
   );
   const [attendanceStep, setAttendanceStep] = useState('login');
   const [error, setError] = useState('');
@@ -337,14 +388,30 @@ function Home({ navigate, routeParams }) {
     }
   }, [isEmployeeAccess]);
 
+  const loadFaceProfileStatus = useCallback(async () => {
+    if (!isEmployeeAccess) {
+      return;
+    }
+
+    try {
+      const response = await faceAttendanceViewApi({ action: 'login' });
+      setFaceProfileResponse(response);
+    } catch (profileError) {
+      console.log('Home Face Profile Status Error:', profileError?.response || profileError);
+      setFaceProfileResponse(null);
+    }
+  }, [isEmployeeAccess]);
+
   useEffect(() => {
     loadDashboard();
     loadMonthlyAttendance();
     loadFaceTodayStatus();
+    loadFaceProfileStatus();
   }, [
     loadDashboard,
     loadMonthlyAttendance,
     loadFaceTodayStatus,
+    loadFaceProfileStatus,
     routeParams?.refreshFaceAttendance,
   ]);
 
@@ -422,13 +489,22 @@ function Home({ navigate, routeParams }) {
   const attendanceSummary = monthlyAttendance.calculated_summary || {};
   const todayFaceStatus = getStatusData(faceStatusResponse);
   const latestRegisterStatus = getRegistrationData(getCurrentFaceAttendanceRegisterResponse());
+  const faceProfileStatus = getRegistrationData(faceProfileResponse);
   const routeFaceRegisteredFlag = routeParams?.faceRegistered === true;
   const apiFaceRegisteredFlag = readRegistrationFlag(todayFaceStatus);
   const registerResponseFlag = readRegistrationFlag(latestRegisterStatus);
+  const profileResponseFlag = readRegistrationFlag(faceProfileStatus);
+  const profileObject = faceProfileStatus.face_profile || {};
   const faceRegisteredFlag =
     routeFaceRegisteredFlag ||
     apiFaceRegisteredFlag === true ||
-    registerResponseFlag === true;
+    registerResponseFlag === true ||
+    profileResponseFlag === true ||
+    Boolean(
+      profileObject.face_profile_id ||
+        profileObject.face_embedding ||
+        profileObject.embedding_json,
+    );
   const computedAttendanceStep = getAttendanceStepFromRecord({
     faceRegistered: faceRegisteredFlag,
     isEmployeeAccess,
@@ -567,7 +643,7 @@ function Home({ navigate, routeParams }) {
 
               {isAttendanceDone && (
                 <View style={styles.attendanceDoneBox}>
-                  <Text style={styles.attendanceDoneText}>Attendance Completed</Text>
+                  <Text style={styles.attendanceDoneText}>Attendance Done</Text>
                 </View>
               )}
             </>
@@ -636,7 +712,13 @@ function Home({ navigate, routeParams }) {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={shouldRegisterFace ? 'Register face' : 'Open scan'}
+          accessibilityLabel={
+            shouldRegisterFace
+              ? 'Register face'
+              : isAttendanceDone
+                ? 'Attendance done'
+                : 'Open scan'
+          }
           style={({ pressed }) => [
             styles.taskBarItem,
             pressed && styles.taskBarItemPressed,
@@ -644,6 +726,8 @@ function Home({ navigate, routeParams }) {
           onPress={() =>
             shouldRegisterFace
               ? navigate('faceRegister')
+              : isAttendanceDone
+                ? navigate('home')
               : navigate('scan', { mode: faceActionMode })
           }
         >

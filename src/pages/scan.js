@@ -15,18 +15,23 @@ import {
 } from 'react-native-vision-camera';
 import {
   faceAttendancePunchApi,
-  faceAttendanceTodayStatusApi,
   faceAttendanceViewApi,
+  getCurrentEmployeeFaceIdentity,
+  getCurrentFaceAttendanceSession,
 } from '../redux/faceAttendanceSlice';
 import {getCurrentAuthSession} from '../redux/loginSlice';
 import {
-  compareFaceEmbeddings,
   createImageFormFile,
   faceDetectionOptions,
-  getProfileFaceEmbedding,
   validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
 import {getFaceAttendanceLocationPayload} from '../utils/locationPayload';
+import {getFaceProfileImageUrl} from '../utils/mediaUrl';
+import {
+  ensureRegulaFaceSdkInitialized,
+  getRegulaFaceRecognitionStatus,
+  verifyRegulaFaceMatch,
+} from '../utils/regulaFaceRecognition';
 
 function ScanOverlay() {
   const scanLineY = useRef(new Animated.Value(0)).current;
@@ -109,17 +114,19 @@ const normalizeIdentifier = (value) =>
     : String(value).trim().toLowerCase();
 
 const getSessionEmployeeIdentifiers = () => {
+  const currentEmployee = getCurrentEmployeeFaceIdentity();
   const session = getCurrentAuthSession();
   const user = session?.user || {};
 
   return {
     code: normalizeIdentifier(
-      user.emp_code ||
+      currentEmployee.employeeCode ||
+        user.emp_code ||
         user.employee_code ||
         user.emp_username ||
         user.username,
     ),
-    id: normalizeIdentifier(user.emp_id || user.employee_id || user.id),
+    id: normalizeIdentifier(currentEmployee.employeeId || user.emp_id || user.employee_id || user.id),
   };
 };
 
@@ -155,11 +162,99 @@ const isCurrentEmployeeFaceProfile = ({employee, profile}) => {
   return false;
 };
 
+const getFaceBounds = (face = {}) => {
+  const box = face.boundingBox;
+
+  if (Array.isArray(box)) {
+    const [left = 0, top = 0, right = 0, bottom = 0] = box;
+    return {
+      centerX: (left + right) / 2,
+      centerY: (top + bottom) / 2,
+      height: Math.abs(bottom - top),
+      width: Math.abs(right - left),
+    };
+  }
+
+  const x = box?.x ?? box?.left ?? box?.origin?.x ?? 0;
+  const y = box?.y ?? box?.top ?? box?.origin?.y ?? 0;
+  const width = box?.width ?? box?.size?.width ?? Math.abs((box?.right ?? 0) - x);
+  const height = box?.height ?? box?.size?.height ?? Math.abs((box?.bottom ?? 0) - y);
+
+  return {
+    centerX: x + width / 2,
+    centerY: y + height / 2,
+    height,
+    width,
+  };
+};
+
+const isFaceCentered = (face = {}) => {
+  const bounds = getFaceBounds(face);
+  const imageWidth = face.imageWidth || face.frameWidth || face.sourceWidth || 0;
+  const imageHeight = face.imageHeight || face.frameHeight || face.sourceHeight || 0;
+
+  if (!bounds.width || !bounds.height || !imageWidth || !imageHeight) {
+    return {isCentered: true, bounds};
+  }
+
+  const xRatio = bounds.centerX / imageWidth;
+  const yRatio = bounds.centerY / imageHeight;
+  const widthRatio = bounds.width / imageWidth;
+  const heightRatio = bounds.height / imageHeight;
+
+  return {
+    bounds,
+    isCentered:
+      xRatio >= 0.28 &&
+      xRatio <= 0.72 &&
+      yRatio >= 0.22 &&
+      yRatio <= 0.72 &&
+      widthRatio >= 0.18 &&
+      heightRatio >= 0.18,
+  };
+};
+
+const isStableFace = (firstFace = {}, secondFace = {}) => {
+  const first = getFaceBounds(firstFace);
+  const second = getFaceBounds(secondFace);
+  const maxWidth = Math.max(first.width, second.width, 1);
+  const maxHeight = Math.max(first.height, second.height, 1);
+  const centerShiftX = Math.abs(first.centerX - second.centerX) / maxWidth;
+  const centerShiftY = Math.abs(first.centerY - second.centerY) / maxHeight;
+  const sizeShift =
+    Math.abs(first.width - second.width) / maxWidth +
+    Math.abs(first.height - second.height) / maxHeight;
+
+  return centerShiftX <= 0.18 && centerShiftY <= 0.18 && sizeShift <= 0.35;
+};
+
+const delay = (durationMs) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+
+const createFastLocationPayload = async () => {
+  try {
+    return await getFaceAttendanceLocationPayload({
+      highAccuracy: false,
+      fallbackTimeout: 1200,
+      maximumAge: 300000,
+      includeAddress: false,
+      fallbackToCoordinates: true,
+    });
+  } catch (error) {
+    console.log('Fast Face Attendance Location Error:', error);
+    return {};
+  }
+};
+
 function Scan({navigate, routeParams}) {
   const cameraRef = useRef(null);
   const autoScanTimerRef = useRef(null);
   const hasAutoScannedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const isProcessingRef = useRef(false);
+  const profileRequestRef = useRef(null);
   const scanStartedAtRef = useRef(Date.now());
   const device = useCameraDevice('front');
   const photoOutput = usePhotoOutput();
@@ -173,7 +268,20 @@ function Scan({navigate, routeParams}) {
     'Camera permission required to begin scanning.',
   );
   const [detectionState] = useState(getDetectionStatus);
+  const [recognitionState, setRecognitionState] = useState(
+    getRegulaFaceRecognitionStatus,
+  );
   const [scanRetryKey, setScanRetryKey] = useState(0);
+
+  const loadEmployeeFaceProfile = useCallback(() => {
+    if (!profileRequestRef.current) {
+      profileRequestRef.current = faceAttendanceViewApi({
+        action,
+        employeeId: getCurrentEmployeeFaceIdentity().employeeId,
+      });
+    }
+    return profileRequestRef.current;
+  }, [action]);
 
   const setSafePermissionState = useCallback((message) => {
     if (isMountedRef.current) {
@@ -181,9 +289,62 @@ function Scan({navigate, routeParams}) {
     }
   }, []);
 
+  const captureDetectedFace = useCallback(async () => {
+    const photo = await photoOutput.capturePhotoToFile(
+      {enableShutterSound: false, flashMode: 'off'},
+      {},
+    );
+
+    if (!photo?.filePath) {
+      return {error: 'Unable to save selfie. Please try again.'};
+    }
+
+    const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
+    const faceCapture = validateSingleFaceCapture(faces);
+    if (faceCapture.error) {
+      return {error: faceCapture.error, photo};
+    }
+
+    const centeredFace = isFaceCentered(faceCapture.face);
+    if (!centeredFace.isCentered) {
+      return {error: 'Center your face in the frame.', faceCapture, photo};
+    }
+
+    return {faceCapture, photo};
+  }, [photoOutput]);
+
+  const captureStableFace = useCallback(async () => {
+    const firstCapture = await captureDetectedFace();
+    if (firstCapture.error) {
+      return firstCapture;
+    }
+
+    setSafePermissionState('Hold still. Checking face stability...');
+    await delay(450);
+
+    if (!isMountedRef.current) {
+      return {error: 'Scan cancelled.'};
+    }
+
+    const secondCapture = await captureDetectedFace();
+    if (secondCapture.error) {
+      return secondCapture;
+    }
+
+    if (!isStableFace(firstCapture.faceCapture.face, secondCapture.faceCapture.face)) {
+      return {error: 'Hold still and keep your face centered.'};
+    }
+
+    return secondCapture;
+  }, [captureDetectedFace, setSafePermissionState]);
+
   const openFrontCamera = useCallback(async () => {
     if (!device) {
       setSafePermissionState('No front camera found on this device.');
+      return false;
+    }
+    if (!recognitionState.ok) {
+      setSafePermissionState('Face recognition is unavailable in this app build.');
       return false;
     }
     if (!hasPermission) {
@@ -202,9 +363,13 @@ function Scan({navigate, routeParams}) {
     }
     setSafePermissionState('Camera active. Scanning face automatically...');
     return true;
-  }, [device, hasPermission, requestPermission, setSafePermissionState]);
+  }, [device, hasPermission, recognitionState.ok, requestPermission, setSafePermissionState]);
 
   const captureAndPunch = useCallback(async () => {
+    if (isProcessingRef.current) {
+      return;
+    }
+
     if (!cameraEnabled || !hasPermission || !device) {
       await openFrontCamera();
       return;
@@ -213,82 +378,84 @@ function Scan({navigate, routeParams}) {
     let locationPayload = null;
 
     try {
+      isProcessingRef.current = true;
       if (isMountedRef.current) {
         setIsSubmitting(true);
       }
-      setSafePermissionState(`${actionLabel} face scan in progress...`);
+      setSafePermissionState('Center your face in the frame...');
 
-      const photo = await photoOutput.capturePhotoToFile(
-        {enableShutterSound: true, flashMode: 'off'},
-        {},
-      );
+      const profileRequest = loadEmployeeFaceProfile();
+      const stableCapture = await captureStableFace();
+      if (stableCapture.error) {
+        if (Date.now() - scanStartedAtRef.current < 15000) {
+          hasAutoScannedRef.current = false;
+          setScanRetryKey((key) => key + 1);
+        }
+        setSafePermissionState(stableCapture.error);
+        return;
+      }
+
+      setSafePermissionState('Verifying face against this employee account...');
+      const profileResponse = await profileRequest;
 
       if (!isMountedRef.current) {
         return;
       }
 
-      if (!photo?.filePath) {
-        setSafePermissionState('Unable to save selfie. Please try again.');
-        return;
-      }
-
+      const photo = stableCapture.photo;
       const uri = photo.filePath.startsWith('file://')
         ? photo.filePath
         : `file://${photo.filePath}`;
-      const faces = await FaceDetection.processImage(photo.filePath, faceDetectionOptions);
-
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      const faceCapture = validateSingleFaceCapture(faces);
-      if (faceCapture.error) {
-        const elapsedMs = Date.now() - scanStartedAtRef.current;
-        if (elapsedMs < 10000) {
-          hasAutoScannedRef.current = false;
-          setScanRetryKey((key) => key + 1);
-          setSafePermissionState('Looking for the registered face...');
-        } else {
-          setSafePermissionState(faceCapture.error);
-        }
-        return;
-      }
-
+      const faceCapture = stableCapture.faceCapture;
       const faceEmbedding = faceCapture.faceEmbedding;
-      locationPayload = await getFaceAttendanceLocationPayload();
-      if (!isMountedRef.current) {
-        return;
-      }
-      const profileResponse = await faceAttendanceViewApi({
-        action,
-        ...locationPayload,
-      });
-      if (!isMountedRef.current) {
-        return;
-      }
       const profileData = profileResponse?.data?.data || {};
       const profile = profileData.face_profile || {};
       const employee = profileData.employee || {};
+      const employeeIdentity = getCurrentEmployeeFaceIdentity();
+      const activeFaceSession = getCurrentFaceAttendanceSession();
 
       if (!isCurrentEmployeeFaceProfile({employee, profile})) {
         setSafePermissionState(
-          'Face profile does not belong to this logged-in employee. Please login with the correct account.',
+          action === 'logout'
+            ? 'Logout failed. Face does not match logged-in employee.'
+            : 'Face does not belong to this employee account.',
         );
         return;
       }
 
-      const registeredEmbedding = getProfileFaceEmbedding(profile);
-      const faceMatch = compareFaceEmbeddings(faceEmbedding, registeredEmbedding);
-
-      if (!faceMatch.isMatch) {
-        hasAutoScannedRef.current = false;
-        setScanRetryKey((key) => key + 1);
-        setSafePermissionState('Wrong face detected. Please scan the registered employee face.');
+      if (
+        action === 'logout' &&
+        activeFaceSession?.normalizedEmployeeId &&
+        activeFaceSession.normalizedEmployeeId !== employeeIdentity.normalizedEmployeeId
+      ) {
+        setSafePermissionState('Logout failed. Face does not match logged-in employee.');
         return;
       }
 
+      const registeredImageUri = getFaceProfileImageUrl(profile);
+      const regulaFaceMatch = await verifyRegulaFaceMatch({
+        liveImageUri: uri,
+        registeredImageUri,
+      });
+
+      if (!regulaFaceMatch.isMatch) {
+        setSafePermissionState(
+          action === 'logout'
+            ? 'Logout failed. Face does not match logged-in employee.'
+            : 'Face does not belong to this employee account.',
+        );
+        return;
+      }
+
+      setSafePermissionState(`${actionLabel} verified. Saving attendance...`);
+      locationPayload = await createFastLocationPayload();
+      if (!isMountedRef.current) {
+        return;
+      }
       await faceAttendancePunchApi({
         action,
+        employeeId: employeeIdentity.employeeId,
+        employeeName: employeeIdentity.employeeName,
         faceEmbedding,
         ...locationPayload,
         selfie: createImageFormFile(uri, `${action}-selfie.jpg`),
@@ -296,13 +463,11 @@ function Scan({navigate, routeParams}) {
       if (!isMountedRef.current) {
         return;
       }
-      try {
-        await faceAttendanceTodayStatusApi();
-      } catch (statusError) {
-        console.log(`Face ${actionLabel} Today Status Refresh Error:`, statusError?.response || statusError);
-      }
 
       setSafePermissionState(`${actionLabel} successful.`);
+      if (isMountedRef.current) {
+        setCameraEnabled(false);
+      }
       navigate?.('home', {
         faceActionCompleted: action,
         faceRegistered: true,
@@ -322,6 +487,7 @@ function Scan({navigate, routeParams}) {
       }
       setSafePermissionState(error.message || `${actionLabel} failed. Please try again.`);
     } finally {
+      isProcessingRef.current = false;
       if (isMountedRef.current) {
         setIsSubmitting(false);
       }
@@ -330,11 +496,12 @@ function Scan({navigate, routeParams}) {
     action,
     actionLabel,
     cameraEnabled,
+    captureStableFace,
     device,
     hasPermission,
+    loadEmployeeFaceProfile,
     navigate,
     openFrontCamera,
-    photoOutput,
     setSafePermissionState,
   ]);
 
@@ -343,12 +510,36 @@ function Scan({navigate, routeParams}) {
   useEffect(() => {
     isMountedRef.current = true;
     hasAutoScannedRef.current = false;
+    profileRequestRef.current = null;
     scanStartedAtRef.current = Date.now();
 
     return () => {
       isMountedRef.current = false;
     };
   }, [action]);
+
+  useEffect(() => {
+    ensureRegulaFaceSdkInitialized()
+      .then(() => {
+        if (isMountedRef.current) {
+          setRecognitionState({ok: true});
+        }
+      })
+      .catch((error) => {
+        console.log('Face Recognition Init Error:', error);
+        if (isMountedRef.current) {
+          setRecognitionState({ok: false});
+          setSafePermissionState(error.message || 'Face recognition is unavailable.');
+        }
+      });
+  }, [setSafePermissionState]);
+
+  useEffect(() => {
+    loadEmployeeFaceProfile().catch((error) => {
+      console.log('Preload Employee Face Profile Error:', error?.response || error);
+      setSafePermissionState(error.message || 'Unable to load this employee face profile.');
+    });
+  }, [loadEmployeeFaceProfile, setSafePermissionState]);
 
   useEffect(() => {
     openFrontCamera().catch((error) => {
@@ -368,7 +559,7 @@ function Scan({navigate, routeParams}) {
         console.log('Auto Face Scan Error:', error);
         setSafePermissionState(error.message || `${actionLabel} failed. Please try again.`);
       });
-    }, 900);
+    }, 1500);
 
     return () => {
       if (autoScanTimerRef.current) {
@@ -428,9 +619,9 @@ function Scan({navigate, routeParams}) {
           </View>
           <View style={styles.statusSep} />
           <View style={styles.statusItem}>
-            <Text style={styles.statusLabel}>MODE</Text>
-            <Text style={[styles.statusValue, showCamera && styles.statusValueOk]} numberOfLines={1}>
-              {actionLabel}
+            <Text style={styles.statusLabel}>RECOGNITION</Text>
+            <Text style={[styles.statusValue, recognitionState.ok && styles.statusValueOk]} numberOfLines={1}>
+              {recognitionState.ok ? 'Ready' : 'Blocked'}
             </Text>
           </View>
         </View>

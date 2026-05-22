@@ -28,4 +28,41 @@ allprojects {
     }
 }
 
+gradle.projectsEvaluated {
+    def nitroProject = findProject(":react-native-nitro-modules")
+    def visionCameraProject = findProject(":react-native-vision-camera")
+    def faceDetectorProject = findProject(":react-native-vision-camera-face-detector")
+
+    if (nitroProject != null && visionCameraProject != null && faceDetectorProject != null) {
+        def prepareNitroHeaders = nitroProject.tasks.named("prepareHeaders")
+        def prepareVisionCameraHeaders = visionCameraProject.tasks.named("prepareHeaders")
+        def nitroCleanTasks = nitroProject.tasks.matching {
+            it.name == "clean" || it.name.startsWith("externalNativeBuildClean")
+        }
+        def visionCameraCleanTasks = visionCameraProject.tasks.matching {
+            it.name == "clean" || it.name.startsWith("externalNativeBuildClean")
+        }
+
+        faceDetectorProject.tasks.matching {
+            it.name.startsWith("externalNativeBuildClean")
+        }.configureEach { task ->
+            task.dependsOn(prepareNitroHeaders)
+            task.dependsOn(prepareVisionCameraHeaders)
+            task.enabled = false
+            nitroCleanTasks.configureEach { nitroCleanTask ->
+                task.mustRunAfter(nitroCleanTask)
+            }
+            visionCameraCleanTasks.configureEach { visionCameraCleanTask ->
+                task.mustRunAfter(visionCameraCleanTask)
+            }
+        }
+
+        faceDetectorProject.tasks.named("clean").configure { task ->
+            task.doLast {
+                delete(new File(faceDetectorProject.projectDir, ".cxx"))
+            }
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"

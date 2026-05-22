@@ -1,7 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Platform } from 'react-native';
 import { Config } from '../Config';
-import { CLIENT_CODE, getCurrentAuthToken } from './loginSlice';
+import { CLIENT_CODE, getCurrentAuthSession, getCurrentAuthToken } from './loginSlice';
 import { FACE_MODEL_NAME } from '../utils/faceEmbedding';
 
 const FACE_ATTENDANCE_REGISTER_API_URL =
@@ -21,6 +21,7 @@ let latestViewResponse = null;
 let latestLoginPunchResponse = null;
 let latestLogoutPunchResponse = null;
 let latestTodayStatusResponse = null;
+let latestActiveFaceSession = null;
 
 const getResponseHeaders = (headers) => {
   if (!headers) {
@@ -64,6 +65,63 @@ const appendIfValue = (formData, key, value) => {
   }
 };
 
+export const normalizeEmployeeIdentifier = (value) =>
+  value === null || value === undefined || value === ''
+    ? ''
+    : String(value).trim().toLowerCase();
+
+export const getCurrentEmployeeFaceIdentity = () => {
+  const session = getCurrentAuthSession();
+  const user = session?.user || {};
+  const employeeId =
+    user.emp_id ||
+    user.employee_id ||
+    user.id ||
+    user.emp_code ||
+    user.employee_code ||
+    user.emp_username ||
+    user.username ||
+    '';
+  const employeeName =
+    user.emp_name ||
+    user.employee_name ||
+    user.name ||
+    user.emp_username ||
+    user.username ||
+    '';
+
+  return {
+    employeeCode: user.emp_code || user.employee_code || user.emp_username || user.username || '',
+    employeeId,
+    employeeName,
+    normalizedEmployeeId: normalizeEmployeeIdentifier(employeeId),
+  };
+};
+
+const appendEmployeeIdentity = (formData, identity = getCurrentEmployeeFaceIdentity()) => {
+  appendIfValue(formData, 'employee_id', identity.employeeId);
+  appendIfValue(formData, 'emp_id', identity.employeeId);
+  appendIfValue(formData, 'employee_code', identity.employeeCode);
+  appendIfValue(formData, 'emp_code', identity.employeeCode);
+  appendIfValue(formData, 'employee_name', identity.employeeName);
+  appendIfValue(formData, 'emp_name', identity.employeeName);
+};
+
+export const markFaceSessionStarted = (sessionData = {}) => {
+  latestActiveFaceSession = {
+    ...getCurrentEmployeeFaceIdentity(),
+    ...sessionData,
+    loginAt: new Date().toISOString(),
+  };
+  return latestActiveFaceSession;
+};
+
+export const markFaceSessionEnded = () => {
+  latestActiveFaceSession = null;
+};
+
+export const getCurrentFaceSession = () => latestActiveFaceSession;
+
 const createBaseHeaders = (token) => ({
   Accept: 'application/json',
   'X-Client-Code': CLIENT_CODE,
@@ -86,6 +144,9 @@ export const faceAttendanceRegisterApi = async ({
   accuracy,
   action = 'login',
   addressText,
+  employeeCode,
+  employeeId,
+  employeeName,
   faceEmbedding,
   faceImage,
   latitude,
@@ -95,7 +156,14 @@ export const faceAttendanceRegisterApi = async ({
   token = getCurrentAuthToken(),
 }) => {
   const formData = new FormData();
+  const employeeIdentity = {
+    ...getCurrentEmployeeFaceIdentity(),
+    ...(employeeCode ? {employeeCode} : {}),
+    ...(employeeId ? {employeeId} : {}),
+    ...(employeeName ? {employeeName} : {}),
+  };
   formData.append('face_image', faceImage);
+  appendEmployeeIdentity(formData, employeeIdentity);
   appendIfValue(formData, 'selfie', faceImage);
   appendIfValue(formData, 'action', action);
   formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
@@ -122,6 +190,9 @@ export const faceAttendanceRegisterApi = async ({
         action,
         address_text: addressText,
         device_id: deviceId,
+        employee_code: employeeIdentity.employeeCode,
+        employee_id: employeeIdentity.employeeId,
+        employee_name: employeeIdentity.employeeName,
         face_embedding: faceEmbedding,
         face_image: faceImage,
         latitude,
@@ -149,6 +220,9 @@ export const faceAttendanceRegisterApi = async ({
 };
 
 export const faceAttendanceEditApi = async ({
+  employeeCode,
+  employeeId,
+  employeeName,
   faceEmbedding,
   faceImage,
   modelName = FACE_MODEL_NAME,
@@ -156,6 +230,13 @@ export const faceAttendanceEditApi = async ({
   token = getCurrentAuthToken(),
 }) => {
   const formData = new FormData();
+  const employeeIdentity = {
+    ...getCurrentEmployeeFaceIdentity(),
+    ...(employeeCode ? {employeeCode} : {}),
+    ...(employeeId ? {employeeId} : {}),
+    ...(employeeName ? {employeeName} : {}),
+  };
+  appendEmployeeIdentity(formData, employeeIdentity);
   appendIfValue(formData, 'face_image', faceImage);
   formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
   formData.append('model_name', modelName);
@@ -174,6 +255,9 @@ export const faceAttendanceEditApi = async ({
       ...config,
       body: {
         device_id: deviceId,
+        employee_code: employeeIdentity.employeeCode,
+        employee_id: employeeIdentity.employeeId,
+        employee_name: employeeIdentity.employeeName,
         face_embedding: faceEmbedding,
         face_image: faceImage,
         model_name: modelName,
@@ -202,6 +286,9 @@ export const faceAttendanceViewApi = async ({
   action = 'login',
   addressText,
   deviceId = getDeviceId(),
+  employeeCode,
+  employeeId,
+  employeeName,
   faceEmbedding,
   latitude,
   longitude,
@@ -209,6 +296,13 @@ export const faceAttendanceViewApi = async ({
   token = getCurrentAuthToken(),
 } = {}) => {
   const formData = new FormData();
+  const employeeIdentity = {
+    ...getCurrentEmployeeFaceIdentity(),
+    ...(employeeCode ? {employeeCode} : {}),
+    ...(employeeId ? {employeeId} : {}),
+    ...(employeeName ? {employeeName} : {}),
+  };
+  appendEmployeeIdentity(formData, employeeIdentity);
   appendIfValue(formData, 'selfie', selfie);
   appendIfValue(formData, 'action', action);
   appendIfValue(
@@ -238,6 +332,9 @@ export const faceAttendanceViewApi = async ({
         action,
         address_text: addressText,
         device_id: deviceId,
+        employee_code: employeeIdentity.employeeCode,
+        employee_id: employeeIdentity.employeeId,
+        employee_name: employeeIdentity.employeeName,
         face_embedding: faceEmbedding,
         latitude,
         longitude,
@@ -267,6 +364,9 @@ export const faceAttendancePunchApi = async ({
   action,
   addressText,
   deviceId = getDeviceId(),
+  employeeCode,
+  employeeId,
+  employeeName,
   faceEmbedding,
   latitude,
   longitude,
@@ -275,7 +375,14 @@ export const faceAttendancePunchApi = async ({
 }) => {
   const normalizedAction = action === 'logout' ? 'logout' : 'login';
   const formData = new FormData();
+  const employeeIdentity = {
+    ...getCurrentEmployeeFaceIdentity(),
+    ...(employeeCode ? {employeeCode} : {}),
+    ...(employeeId ? {employeeId} : {}),
+    ...(employeeName ? {employeeName} : {}),
+  };
   formData.append('selfie', selfie);
+  appendEmployeeIdentity(formData, employeeIdentity);
   formData.append('action', normalizedAction);
   formData.append('face_embedding', JSON.stringify(faceEmbedding || []));
   appendIfValue(formData, 'latitude', latitude);
@@ -300,6 +407,9 @@ export const faceAttendancePunchApi = async ({
         action: normalizedAction,
         address_text: addressText,
         device_id: deviceId,
+        employee_code: employeeIdentity.employeeCode,
+        employee_id: employeeIdentity.employeeId,
+        employee_name: employeeIdentity.employeeName,
         face_embedding: faceEmbedding,
         latitude,
         longitude,
@@ -323,8 +433,13 @@ export const faceAttendancePunchApi = async ({
 
   if (normalizedAction === 'logout') {
     latestLogoutPunchResponse = fullResponse;
+    markFaceSessionEnded();
   } else {
     latestLoginPunchResponse = fullResponse;
+    markFaceSessionStarted({
+      faceEmbedding,
+      punchResponse: fullResponse,
+    });
   }
 
   return fullResponse;
@@ -371,6 +486,8 @@ export const getCurrentFaceAttendanceLoginPunchResponse = () =>
   latestLoginPunchResponse;
 export const getCurrentFaceAttendanceLogoutPunchResponse = () =>
   latestLogoutPunchResponse;
+export const getCurrentFaceAttendanceSession = () =>
+  latestActiveFaceSession;
 
 export const faceAttendanceRegisterThunk = createAsyncThunk(
   'faceAttendance/register',
@@ -459,6 +576,7 @@ const faceAttendanceSlice = createSlice({
       latestLoginPunchResponse = null;
       latestLogoutPunchResponse = null;
       latestTodayStatusResponse = null;
+      latestActiveFaceSession = null;
     },
   },
   extraReducers: (builder) => {

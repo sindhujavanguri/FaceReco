@@ -22,13 +22,13 @@ import {
   getDeviceId,
 } from '../redux/faceAttendanceSlice';
 import {
-  FACE_MODEL_NAME,
   createImageFormFile,
   faceDetectionOptions,
   parseFaceEmbeddingPayload,
   validateSingleFaceCapture,
 } from '../utils/faceEmbedding';
 import {getFaceProfileImageUrl} from '../utils/mediaUrl';
+import {REGULA_FACE_MODEL_NAME} from '../utils/regulaFaceRecognition';
 
 const parseEmbeddingText = (value) => {
   return parseFaceEmbeddingPayload(value);
@@ -53,7 +53,7 @@ function FaceRegisterEdit({navigate, routeParams}) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [embeddingText, setEmbeddingText] = useState(stringifyEmbedding(initialProfile));
   const [modelName, setModelName] = useState(
-    initialProfile.model_name || FACE_MODEL_NAME,
+    initialProfile.model_name || REGULA_FACE_MODEL_NAME,
   );
   const [deviceId, setDeviceId] = useState(
     initialProfile.registered_device_id || getDeviceId(),
@@ -78,7 +78,7 @@ function FaceRegisterEdit({navigate, routeParams}) {
       const nextProfile = response?.data?.data?.face_profile || {};
       setProfile(nextProfile);
       setEmbeddingText(stringifyEmbedding(nextProfile));
-      setModelName(nextProfile.model_name || FACE_MODEL_NAME);
+      setModelName(nextProfile.model_name || REGULA_FACE_MODEL_NAME);
       setDeviceId(nextProfile.registered_device_id || getDeviceId());
       setStatusText(response?.data?.message || 'Face profile loaded.');
     } catch (error) {

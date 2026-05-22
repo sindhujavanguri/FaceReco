@@ -6,8 +6,8 @@ import {
 } from 'react-native-face-detection';
 
 export const FACE_MODEL_NAME = 'mlkit-face-descriptor-v2';
-export const FACE_MATCH_COSINE_THRESHOLD = 0.9;
-export const FACE_MATCH_DISTANCE_THRESHOLD = 0.18;
+export const FACE_MATCH_COSINE_THRESHOLD = 0.95;
+export const FACE_MATCH_DISTANCE_THRESHOLD = 0.1;
 export const MIN_FACE_VECTOR_VALUES = 24;
 
 export const faceDetectionOptions = {
